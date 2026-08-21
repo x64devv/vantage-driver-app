@@ -1,0 +1,99 @@
+/* App-level rules that are not part of the Modernist sheet.
+   ⚠ Radius is 0 everywhere. The only two exceptions in this file are the phone
+   bezel (44/34px) and the gesture pill — both hardware, not UI. */
+
+html,
+body {
+  background: #e4e3e2; /* the desk the phone sits on; not a UI colour */
+}
+
+/* ⚠ Focus is always the accent ring, never the browser default. Non-button
+   elements made interactive carry .focusable. */
+:focus-visible,
+.focusable:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Body copy wraps kindly; rows ellipse on one line instead. */
+.pretty {
+  text-wrap: pretty;
+}
+
+/* The phone's own scroll area — no visible scrollbar, it is a phone. */
+.scr {
+  scrollbar-width: none;
+}
+.scr::-webkit-scrollbar {
+  width: 0;
+}
+
+/* ── Leaflet ──────────────────────────────────────────────────────────────
+   ⚠ The OSM attribution is a LICENCE REQUIREMENT. 8px on an 80% plate, and it
+   is never removed. */
+.lf-gs {
+  filter: grayscale(1) contrast(1.06) brightness(1.03);
+}
+.leaflet-container {
+  background: #dddbda;
+  font-family: var(--font-body);
+}
+.leaflet-control-attribution {
+  font-size: 8px;
+  background: rgba(243, 242, 242, 0.8);
+}
+.leaflet-bar,
+.leaflet-bar a {
+  border-radius: 0 !important;
+}
+
+/* Stop markers — 26px squares. The driver's own position is the one round thing
+   in the app, and it is a dot, not a container. */
+.mk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: #201e1d;
+  color: #f3f2f2;
+  font: 800 13px/1 Archivo, system-ui;
+  border: 2px solid #f3f2f2;
+}
+.mk-next {
+  background: #ec3013;
+}
+.mk-done {
+  background: #f3f2f2;
+  color: #201e1d;
+  border-color: #201e1d;
+}
+.mk-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ec3013;
+  border: 2px solid #f3f2f2;
+}
+
+a {
+  color: var(--color-accent-700);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-accent);
+}
+
+/* Hover tint on any tappable surface. */
+.tappable:hover {
+  background: color-mix(in srgb, var(--color-text) 9%, transparent) !important;
+}
+.tap8:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent) !important;
+}
+/* ⚠ Active on the keypad is an accent fill — the only place in the app where a
+   press changes colour, because a PIN key gives no other feedback. */
+.keypad:active {
+  background: var(--color-accent) !important;
+  color: var(--color-bg) !important;
+}

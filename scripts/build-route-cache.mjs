@@ -1,0 +1,160 @@
+/* Pre-cache real OSRM road routes for every order this demo can reach.
+ *
+ * ⚠⚠ Run this on a good connection, commit the output, and the demo never waits
+ * on router.project-osrm.org in front of an audience. The public demo server is
+ * rate-limited and is the wrong thing to have between a director and a spinner.
+ * Same approach as the console's scripts/build-route-cache.mjs.
+ *
+ *   node scripts/build-route-cache.mjs        →  lib/routes-cache.ts
+ *
+ * ⚠ Everything this writes is a figure OSRM actually returned. Nothing in the
+ * app rounds a number up to a friendlier one, and nothing quotes a saving that
+ * was not measured. See CLAUDE.md §"Routing".
+ */
+
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/* The driver's position when the run resumes — parked outside stop 4. */
+const START = [-17.808, 31.14];
+
+const STOP = {
+  1: [-17.79, 31.11],
+  2: [-17.775, 31.12],
+  3: [-17.806, 31.135],
+  4: [-17.8012, 31.1284],
+  5: [-17.85, 31.12],
+  6: [-17.75, 31.09],
+  7: [-17.797, 31.035],
+  8: [-17.88, 31.08],
+};
+
+/* ⚠ Deposit branch points, and what each one is worth.
+   BR is the run's own stop 6 — Shop 12, Sam Levy Village — so the distance the
+   debrief prints is a distance to the marker the map already draws.
+   AV is Avondale Shopping Centre as OpenStreetMap holds it (Nominatim, checked
+   20 Aug 2026): -17.8021697, 31.0381457.
+   ⚠⚠ VE Village Walk is deliberately absent. OpenStreetMap has no Village Walk
+   in Harare and TVSH holds no branch coordinates, so there is no distance to it
+   that anybody could stand behind. Its row prints what is true of it instead —
+   that it raised the invoice. Never invent a coordinate to fill a table cell. */
+const BRANCH = {
+  BR: [-17.75, 31.09],
+  AV: [-17.8021697, 31.0381457],
+};
+
+const pt = (ll) => ll[1].toFixed(6) + ',' + ll[0].toFixed(6);
+const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function road(points, geometry = true) {
+  const url =
+    OSRM +
+    points.map(pt).join(';') +
+    (geometry ? '?overview=full&geometries=geojson' : '?overview=false');
+  const res = await fetch(url);
+  const json = await res.json();
+  const rt = json?.routes?.[0];
+  if (!rt) throw new Error(json?.code || 'no route');
+  return {
+    km: +(rt.distance / 1000).toFixed(3),
+    min: +(rt.duration / 60).toFixed(2),
+    legs: rt.legs.map((l) => ({ km: +(l.distance / 1000).toFixed(3), min: +(l.duration / 60).toFixed(2) })),
+    // Thinned to every fifth vertex — far more than a 393px phone map needs, and
+    // the whole cache ships in the bundle.
+    coords: geometry
+      ? rt.geometry.coordinates
+          .filter((_, i, a) => i % 5 === 0 || i === a.length - 1)
+          .map((c) => [+c[1].toFixed(4), +c[0].toFixed(4)])
+      : [],
+  };
+}
+
+/* The two orders the demo can reach. The dispatcher's is the plan that came down
+   with the run; the optimised one is OSRM's own answer to /trip over the same
+   five stops, verified by brute force over all 24 orders on 20 Aug 2026.
+   ⚠⚠ The handoff's suggested order (4>5>7>6>8, "Avondale before Borrowdale")
+   was measured at 58.43 km / 80.2 min — 1.4 km and 2.2 minutes WORSE than the
+   dispatcher's 57.05 / 78.0. It was a placeholder with nothing behind it. */
+const ORDERS = {
+  '4>5>6>7>8': [4, 5, 6, 7, 8],
+  '4>6>7>8>5': [4, 6, 7, 8, 5],
+};
+
+const out = { routes: {}, ran: null, deposit: {} };
+let ok = 0;
+let fail = 0;
+
+for (const [key, ids] of Object.entries(ORDERS)) {
+  try {
+    out.routes[key] = await road([START, ...ids.map((i) => STOP[i])]);
+    ok++;
+  } catch (e) {
+    fail++;
+    console.error('MISS route', key, String(e.message || e));
+  }
+  await sleep(350);
+}
+
+/* The part of the day already driven — stops 1, 2, 3 and back to where he is
+   standing. It draws dashed and in ink, but it is still a road route: a straight
+   line must never pretend to be one. */
+try {
+  out.ran = await road([STOP[1], STOP[2], STOP[3], START]);
+  ok++;
+} catch (e) {
+  fail++;
+  console.error('MISS ran', String(e.message || e));
+}
+await sleep(350);
+
+/* Deposit distances, from whichever stop the confirmed order ends on. The
+   dispatcher's order finishes at Hatfield (8); OSRM's finishes at Msasa (5). */
+for (const last of [8, 5]) {
+  for (const [code, ll] of Object.entries(BRANCH)) {
+    const key = `${last}>${code}`;
+    try {
+      const r = await road([STOP[last], ll], false);
+      out.deposit[key] = { km: r.km, min: r.min };
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('MISS deposit', key, String(e.message || e));
+    }
+    await sleep(350);
+  }
+}
+
+mkdirSync(join(root, 'lib'), { recursive: true });
+writeFileSync(
+  join(root, 'lib', 'routes-cache.ts'),
+  `/* GENERATED by scripts/build-route-cache.mjs — do not edit by hand.
+ *
+ * ⚠⚠ Real road routes from OSRM for every order this demo can reach. Shipping
+ * them means the phone never waits on a rate-limited public server in front of
+ * an audience. ${ok} fetched${fail ? `, ${fail} missed` : ''}.
+ *
+ * ⚠ Every kilometre and minute the app prints comes from here. If a figure on a
+ * screen is not in this file or derived from it by plain arithmetic, it is a
+ * defect — see CLAUDE.md §"Never quote a figure you cannot stand behind".
+ * Geometry is thinned to every fifth vertex.
+ */
+
+export type Leg = { km: number; min: number };
+export type CachedRoute = { km: number; min: number; legs: Leg[]; coords: [number, number][] };
+
+/** Keyed by stop order, e.g. '4>6>7>8>5'. Leg i is the drive INTO ids[i]. */
+export const CACHED_ROUTES: Record<string, CachedRoute> = ${JSON.stringify(out.routes, null, 1)} as Record<string, CachedRoute>;
+
+/** Stops 1–3 and back to the driver's position — the part already driven. */
+export const RAN_ROUTE: CachedRoute = ${JSON.stringify(out.ran, null, 1)} as CachedRoute;
+
+/** '<last stop id>><branch code>' → road distance from the final stop. */
+export const DEPOSIT_LEGS: Record<string, Leg> = ${JSON.stringify(out.deposit, null, 1)};
+`
+);
+console.log(`cached ${ok} routes (${fail} missed)`);
