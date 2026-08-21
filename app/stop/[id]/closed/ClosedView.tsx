@@ -20,6 +20,13 @@ export default function ClosedView({ id }: { id: number }) {
   const outcome = s.done[stop.id] ?? s.lastOutcome ?? 'delivered';
   const failed = outcome === 'failed';
 
+  /* ⚠⚠ This screen can be reached cold — a shared URL, a rail jump, a reload
+     after Reset run. Without this guard it printed "Stop 4 closed" over an empty
+     record list: a screen reporting work it did not do, which is the worst
+     defect class in this codebase and has happened three times. If nothing was
+     written for this stop on this device, the screen says exactly that. */
+  const wrote = s.stopTrail.length > 0 && !!s.done[stop.id];
+
   /* ⚠ The next stop follows the order in force — the dispatcher's, or the
      optimised one if the driver confirmed it. Walking the stop list in id order
      would quietly undo the decision he took on the route screen. */
@@ -29,23 +36,46 @@ export default function ClosedView({ id }: { id: number }) {
   return (
     <div style={{ padding: '18px 18px 26px' }}>
       <div style={{ font: '800 30px/1.05 Archivo, system-ui', letterSpacing: '-.02em' }}>
-        {failed ? 'Not delivered, and recorded' : `Stop ${stop.seq} closed`}
+        {!wrote
+          ? `Stop ${stop.seq} is not closed`
+          : failed
+            ? 'Not delivered, and recorded'
+            : `Stop ${stop.seq} closed`}
       </div>
       <div className="pretty" style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.78, marginTop: 8 }}>
-        {failed
-          ? 'The consignment goes back to READY for re-planning, and the exception is on the dispatch board within seconds of signal — ageing, with your name on it.'
-          : 'Nothing here is a claim. Every line below is a record, with the place it is going and whether it has got there yet.'}
+        {!wrote
+          ? `Nothing has been written for ${stop.customer} on this device. Open the stop and work through it — this screen only ever shows records that exist.`
+          : failed
+            ? 'The consignment goes back to READY for re-planning, and the exception is on the dispatch board within seconds of signal — ageing, with your name on it.'
+            : 'Nothing here is a claim. Every line below is a record, with the place it is going and whether it has got there yet.'}
       </div>
 
       <div style={{ height: 2, background: DIV, margin: '16px 0' }} />
-      <SectionHead>What this stop wrote, and where it is going</SectionHead>
 
-      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10, borderTop: `1px solid ${DIV}` }}>
-        {s.stopTrail.map((t, i) => (
-          <TrailRow key={t.ref + i} entry={t} />
-        ))}
-      </div>
+      {wrote ? (
+        <>
+          <SectionHead>What this stop wrote, and where it is going</SectionHead>
+          <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10, borderTop: `1px solid ${DIV}` }}>
+            {s.stopTrail.map((t, i) => (
+              <TrailRow key={t.ref + i} entry={t} />
+            ))}
+          </div>
+        </>
+      ) : (
+        <Btn
+          kind="primary"
+          height={56}
+          fontSize={15}
+          style={{ width: '100%' }}
+          onClick={() => router.push(`/stop/${stop.id}`)}
+        >
+          Open stop {stop.seq} · {stop.customer} →
+        </Btn>
+      )}
 
+      {/* ⚠ "Next stop" only exists once this one actually closed. Offering it
+          over an empty record list would be the same claim in a button. */}
+      {wrote && (
       <Btn
         kind="primary"
         height={56}
@@ -76,6 +106,7 @@ export default function ClosedView({ id }: { id: number }) {
       >
         {next ? `Next stop · ${next.customer} →` : 'All stops done · go to debrief'}
       </Btn>
+      )}
       <Btn height={48} style={{ width: '100%', marginTop: 8 }} onClick={() => router.push('/run')}>
         Back to the run
       </Btn>

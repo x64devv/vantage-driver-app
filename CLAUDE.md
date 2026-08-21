@@ -3,8 +3,8 @@
 **Repo:** `XPOS/vantage-driver-app/`
 **What it is:** the demo build of the TVSH driver phone app, from the Claude Design handoff.
 **Deadline:** presentation **Wednesday 26 August 2026**, department heads and directors.
-**Last updated:** 20 August 2026 — *D1–D10 built and driven in a real browser. D11, the projector
-pass, is not done.*
+**Last updated:** 21 August 2026 — *D1–D10 built and driven in a real browser (87 assertions).
+Deployed to Vercel. D11, the projector pass, is not done.*
 
 ---
 
@@ -261,10 +261,47 @@ driver type what he counted. Nothing derives a remainder from it.
 - ⚠ **The left rail quotes sentences the app must never say** (assumption 04 quotes *"payment
   received"*). A copy-rule check that reads the whole page will find them there and be wrong —
   `scripts/verify.mjs` asserts inside `[data-phone="screen"]` only.
+- ⚠⚠ **A screen reached cold must not report work it did not do.** `/stop/N/closed/` opened from a
+  shared URL, a rail jump or a reload after **Reset run** used to print *"Stop 4 closed"* over an
+  empty record list. It now reads *"Stop N is not closed · nothing has been written for <customer> on
+  this device"* and offers no "next stop". Found on 21 Aug by looking at a screenshot of a cold load,
+  not by a test — the test came after. **Every other screen reachable by URL deserves the same
+  question asked of it.**
 
 ---
 
-## 11. Status — 20 August 2026
+## 10a. ⚠⚠ Dependencies — CVE-2025-66478, patched 21 August
+
+Vercel's first deploy flagged **`next@15.5.4`**: *"This version has a security vulnerability"*.
+It is **React2Shell** — `CVE-2025-66478` / upstream `CVE-2025-55182`, **CVSS 10.0 remote code
+execution** through the React Server Components protocol, actively exploited in the wild. All of
+Next.js 15.x and 16.x on the App Router are affected. **Pinned to `next@15.5.23`** — the latest in
+the patched 15.5 line (the fix landed in 15.5.7). Rebuilt and re-verified: **87 of 87 assertions
+pass**, and the rendered screens are unchanged.
+
+⚠ **Why 15.5.23 and not 16.3.1.** A major-version jump five days before a boardroom demo buys a
+different set of unknowns than the one it removes. The 15.5 line is patched; take it.
+
+⚠ **What the exposure actually was, stated plainly rather than dramatically.** This app is
+`output: 'export'` — the deployed site is static files with no Next.js server behind them, so the
+Vercel URL was never processing RSC requests and was not exploitable. **The real exposure was
+`npm run dev` on a developer's laptop**, which does run a server. That is a reason to patch, not a
+reason to have panicked. ⚠⚠ **The console has the same version** — see §12.
+
+⚠ **Two advisories are knowingly left open**, and both are build-time only:
+`postcss` (path traversal via `sourceMappingURL`, reads a `.map` file at build) and `sharp`/libvips
+(image decoding — and `next/image` optimisation is off here, `images: { unoptimized: true }`, and
+does not run in a static export at all). `npm audit fix --force` resolves both by installing
+**next@16.3.1**, a breaking change. Neither is reachable from the deployed static site. Revisit after
+the 26th.
+
+⚠ `react` and `react-dom` at `19.1.0` are not flagged by the advisory database; the RSC hardening
+ships inside Next's own bundled copy. Every dependency in this repo is **pinned exactly** — npm's
+default caret was removed from `next` — because a demo build should not float.
+
+---
+
+## 11. Status — 21 August 2026
 
 | | |
 |---|---|
@@ -274,12 +311,13 @@ driver type what he counted. Nothing derives a remainder from it.
 | Seen in a real browser | ✅ headless Chromium, and screenshots read by eye |
 | Seen on a projector | ☐ **no** |
 
-**What was actually run**, on 20 August, in a Linux container:
+**What was actually run**, on 20 and 21 August, in a Linux container:
 
-- `npm install`, `npm run build` — compiles clean, exports 47 static routes.
+- `npm install`, `npm run build` — compiles clean, exports 47 static routes, on both
+  `next@15.5.4` and, after the security patch, `next@15.5.23`.
 - `node scripts/build-route-cache.mjs` — 7 of 7 routes fetched from OSRM, plus a 24-order brute
   force to check the suggestion (§5).
-- `node serve.mjs`, then `node scripts/verify.mjs` — **84 assertions, 84 pass, 0 fail**, covering:
+- `node serve.mjs`, then `node scripts/verify.mjs` — **87 assertions, 87 pass, 0 fail**, covering:
   every route renders · the whole data-truth pass · the real saving and no placeholder figures ·
   accept **and** reject both writing a trail row · three consignment lines with two unserialised ·
   both stop gates and the label naming what is missing · a single "no" raising the exception panel ·
@@ -287,9 +325,12 @@ driver type what he counted. Nothing derives a remainder from it.
   sentence in COPY-RULES, asserted inside the phone only · the part-payment keypad and the absence of
   any invented figure · the four trail rows in order with their destinations · the deposit rows and
   their real distances · `?bare=1` · a hard reload · Reset run · both variant switches, `navMode`
-  asserted by geometry rather than by wording.
-- Screenshots of all nine screens and all three check layouts, **looked at** — which is how the
-  marker-stacking bug in §10 was found.
+  asserted by geometry rather than by wording · and a **cold load of `/stop/N/closed/`**, which must
+  not claim a stop closed that was never worked.
+- Screenshots of all nine screens and all three check layouts, **looked at** — which is how both
+  bugs in §10 were found: the marker stacking, and the cold Recorded screen.
+- **Deployed to Vercel** from `github.com/x64devv/vantage-driver-app` — build green, 47 routes
+  exported. ⚠ The demo is now on a public URL; nobody has walked it there end to end.
 - Map tiles: rendered and read by eye, served from a local OSM snapshot (see below).
 
 **What has NOT been verified:**
@@ -317,6 +358,11 @@ driver type what he counted. Nothing derives a remainder from it.
 
 ## 12. Still open, and Wyne's to answer
 
+- ⚠⚠ **The console is still on `next@15.5.4`** — the same CVSS-10 version this app was just patched
+  off (§10a). Its demo path is a static export served by `serve.mjs` with no Next runtime, so it is
+  not exposed there either; `npm run dev` on a laptop is. **`XPOS/vantage-transport-console/package.json`
+  and its lockfile now name `15.5.23`, but that machine has no npm registry access** — it needs
+  `npm install && npm run build` run locally, and it has NOT been re-verified since.
 - ⚠⚠ **Beats 4, 5 and 6 have no screen.** The running order's mobile beats are SD-1…3 (the **store
   dispatch tablet** — the serial scan, load-and-seal, far-end receipt scan) and DR-1…5 (this app).
   This handoff covered the driver only. **Three beats of the demo still have nothing behind them.**

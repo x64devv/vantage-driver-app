@@ -263,6 +263,16 @@ await go('/run/');
 t = await text();
 ok('Reset run puts the day back to 3 delivered', has(t, '3 of 8 delivered'), t.split('\n').find((l) => l.includes('delivered ·')) ?? '');
 
+/* ⚠⚠ The cold-URL case, which Reset run has just created. Somebody shares
+   /stop/N/closed/ mid-demo, or reloads it after a reset. It used to print
+   "Stop N closed" over an empty record list — a screen reporting work it did not
+   do, which is the worst defect class in this codebase. */
+await go('/stop/6/closed/');
+ph = await phone();
+ok('a cold Recorded screen does not claim the stop closed', has(ph, 'Stop 6 is not closed'), ph.split('\n').find((l) => l.includes('Stop 6')) ?? '');
+ok('it says nothing was written, and names the stop', has(ph, 'Nothing has been written for Borrowdale branch'));
+ok('it offers no "next stop" over an empty list', !has(ph, 'Next stop ·'));
+
 /* variants */
 await go('/stop/5/');
 await page.getByRole('button', { name: 'Cards', exact: true }).click();
