@@ -54,6 +54,10 @@ node scripts/verify.mjs        # drive the exported app in a browser and assert 
 | `/stop/[id]/closed` | Recorded — what the stop wrote and where it went |
 | `/debrief` | Debrief — counts, cash, deposit branch, sign-off |
 
+On the money screen the driver types what he collected and the app reads the outcome off that figure
+— full, part, over, or **zero, which is a refusal and not a delivery**: it names `PaymentNotMade`,
+says the goods come back, and mints no receipt.
+
 The driver types his own odometer readings — out at sign-in, in at the debrief — and the litres
 drawn. The debrief shows the distance between the two readings and **deliberately shows no km/l**:
 litres drawn is a tank fill, not fuel burned, and one fill is not an efficiency figure.

@@ -22,7 +22,7 @@
 import { useRouter } from 'next/navigation';
 import { DEBRIEF, STOPS, TRIP, VEHICLE, fmtKm, stopById } from '@/lib/run';
 import { depositNote, depositRows } from '@/lib/derive';
-import { litresDrawn, odoDistance, queuedCount, useRun, type TrailEntry } from '@/lib/state';
+import { litresDrawn, money, odoDistance, queuedCount, useRun, type TrailEntry } from '@/lib/state';
 import { ACC, BG, Btn, Card, DIV, Note, SURF, SectionHead } from '@/components/ui';
 
 export default function Debrief() {
@@ -36,12 +36,9 @@ export default function Debrief() {
      payment, or the full figure, and nothing at all if he took nothing. It is
      never the sum of what was due. */
   const cashStop = stopById(4);
-  const usdHeld =
-    s.cashPick === 'full'
-      ? cashStop.cash!.amount
-      : s.cashPick === 'part' && s.partAmount
-        ? `USD ${s.partAmount}`
-        : 'USD 0.00';
+  const collected = money(s.collected);
+  const usdHeld = collected !== null && collected > 0 ? `USD ${s.collected}` : 'USD 0.00';
+  void cashStop;
 
   const rows = depositRows(s.orderAccepted);
   const distance = odoDistance(s);

@@ -3,7 +3,7 @@
 **Repo:** `XPOS/vantage-driver-app/`
 **What it is:** the demo build of the TVSH driver phone app, from the Claude Design handoff.
 **Deadline:** presentation **Wednesday 26 August 2026**, department heads and directors.
-**Last updated:** 21 August 2026 — *D1–D12 built and driven in a real browser (115 assertions).
+**Last updated:** 21 August 2026 — *D1–D13 built and driven in a real browser (125 assertions).
 Deployed to Vercel. D11, the projector pass, is not done.*
 
 ---
@@ -105,6 +105,33 @@ is COPY-RULES spec, and cutting it is how a demo quietly stops being true.
 ⚠⚠ **Untouched, and not negotiable:** every money sentence, both warning panels (*"I cannot see this
 account from here"* and *"a 'no' becomes an exception with your name on it"*), every provenance line
 (`By geofence`, `Scanned`, `Queued · …`, `Held for wifi`), and the Recorded screen's trail rows.
+
+### The cash screen, rebuilt — 21 August
+
+The three choice rows (*Took the full amount* / *Took part of it* / *Customer would not pay*) are
+gone. **The driver types what he counted, straight away**, and the app reads the outcome off that one
+figure. Fewer decisions, one screen with no scrolling, and the same claims.
+
+| Typed | What the screen says |
+|---|---|
+| nothing | *"Count it in front of the receiver, then type it."* Action dimmed: `Type what you collected` |
+| **`0`** | ⚠⚠ **an accent panel** — *"Nothing collected is a refusal, not a delivery."* Reason `PaymentNotMade`, fault Customer, the goods come back. Action becomes **`Record the exception`** |
+| less than the run figure | *"Part of it. The balance stays owing, and this device quotes no figure for it."* Receipt reads `USD 600 of USD 1 150.00` |
+| the run figure | *"The full amount, counted in front of the receiver."* |
+| more than it | *"More than the figure that came down with the run. Check it before you close the stop."* Flagged, not refused |
+
+⚠⚠ **ZERO IS AN OUTCOME, NOT A NUMBER.** Nothing collected is a refusal with a fault attached, and
+the goods come back — it is never a delivered stop that happened to earn nothing. Letting `0` fall
+through to `Complete stop 4` would be precisely the collapse COPY-RULES exists to prevent
+(*"never collapse two different sentences into one"*), in a different noun. A refusal never wears the
+same button as a delivery, and `0` mints no receipt. There are five assertions on this alone.
+
+⚠ **Comparing the typed figure to the due figure is not quoting a balance.** The due figure is on the
+screen above it and is already labelled as what came down with the run. **Nothing subtracts one from
+the other** — the part-payment line still refuses to say what is left.
+
+⚠ `cashPick` and `partAmount` are gone from `RunState`; **`collected` is the single typed string**,
+and `cashOutcome()` in `lib/state.tsx` is the one place the outcome is decided.
 
 ---
 
@@ -315,6 +342,7 @@ ellipsing it would cut the distance or the minutes — the figures the row exist
 | D10 | Left rail, right rail, `?bare=1`, `localStorage`, Reset run | ✅ a hard reload keeps the run |
 | D11 | **Demo pass on the real projector, with the console** | ☐ **not done, and it is not optional** |
 | D12 | **Slim for the room (§3a) + fuel and mileage (§5a)** | ✅ 21 Aug, 115 assertions |
+| D13 | **Cash screen: one typed figure instead of three rows (§3a)** | ✅ 21 Aug, 125 assertions |
 
 **Added, not in the original plan:** a numeric keypad on the cash screen for a part payment. The
 handoff hardcoded `USD 600.00 of USD 1 150.00` — a figure from nowhere, printed on a receipt. §7.8 of
@@ -404,7 +432,7 @@ default caret was removed from `next` — because a demo build should not float.
   `next@15.5.4` and, after the security patch, `next@15.5.23`.
 - `node scripts/build-route-cache.mjs` — 7 of 7 routes fetched from OSRM, plus a 24-order brute
   force to check the suggestion (§5).
-- `node serve.mjs`, then `node scripts/verify.mjs` — **115 assertions, 115 pass, 0 fail**, covering:
+- `node serve.mjs`, then `node scripts/verify.mjs` — **125 assertions, 125 pass, 0 fail**, covering:
   every route renders · the whole data-truth pass · the real saving and no placeholder figures ·
   accept **and** reject both writing a trail row · three consignment lines with two unserialised ·
   both stop gates and the label naming what is missing · a single "no" raising the exception panel ·
@@ -414,7 +442,9 @@ default caret was removed from `next` — because a demo build should not float.
   their real distances · `?bare=1` · a hard reload · Reset run · both variant switches, `navMode`
   asserted by geometry rather than by wording · a **cold load of `/stop/N/closed/`**, which must not
   claim a stop closed that was never worked · every cut and every survivor in §3a · and the fuel and
-  mileage capture, including **that no km/l is printed from a single fill**.
+  mileage capture, including **that no km/l is printed from a single fill** · and all five cash
+  outcomes, including **that `0` is a refusal that mints no receipt and does not wear the delivery
+  button**.
 - Screenshots of all nine screens and all three check layouts, **looked at** — which is how both
   bugs in §10 were found: the marker stacking, and the cold Recorded screen.
 - **Deployed to Vercel** from `github.com/x64devv/vantage-driver-app` — build green, 47 routes

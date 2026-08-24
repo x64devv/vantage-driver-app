@@ -96,8 +96,7 @@ export default function ClosedView({ id }: { id: number }) {
             swipeIdx: 0,
             photos: { goods: false, id: false, refusal: false },
             sigInk: false,
-            cashPick: null,
-            partAmount: '',
+            collected: '',
             failReason: null,
             stopTrail: [],
           });

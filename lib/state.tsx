@@ -29,7 +29,12 @@ export type TrailEntry = {
 
 export type StopLayout = 'checklist' | 'cards' | 'swipe';
 export type NavMode = 'map' | 'list';
-export type CashPick = 'full' | 'part' | 'none';
+/* ⚠⚠ The three cash choice rows went on 21 Aug — the driver now types what he
+   counted and the app reads the outcome off the figure. But ZERO IS STILL AN
+   OUTCOME, NOT A NUMBER: nothing collected is a refusal with a fault on it and
+   the goods come back, never a delivered stop that happened to earn nothing.
+   COPY-RULES: never collapse two different sentences into one. */
+export type CashOutcome = 'none' | 'part' | 'full' | 'over';
 export type Outcome = 'delivered' | 'failed';
 
 export type RunState = {
@@ -45,10 +50,11 @@ export type RunState = {
   sigInk: boolean;
   signer: string;
   idNo: string;
-  cashPick: CashPick | null;
-  /** ⚠⚠ Typed by the driver on the part-payment keypad. The app never invents an
-   *  amount, and it never derives a balance from it. */
-  partAmount: string;
+  /** ⚠⚠ What the driver counted at the door, exactly as he typed it. The app
+   *  never invents an amount and never derives a balance from it — it only
+   *  compares it to the figure that came down with the run, which is on the
+   *  screen above it and labelled as what it is. */
+  collected: string;
   failReason: ReasonCode | null;
   /* ⚠ Fuel and mileage, added 21 Aug. All three are TYPED BY THE DRIVER and held
      as the strings he typed — never parsed into a number and re-formatted, so
@@ -80,8 +86,7 @@ export const initialState = (): RunState => ({
   sigInk: false,
   signer: 'L. Mavuto',
   idNo: '63-1188774-B-42',
-  cashPick: null,
-  partAmount: '',
+  collected: '',
   failReason: null,
   odoOut: '',
   odoIn: '',
@@ -187,11 +192,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
       state: 'Queued',
     });
 
-    if (s.cashPick === 'full' || s.cashPick === 'part') {
+    const outcome = stop.cash ? cashOutcome(s, stop.cash.amount) : null;
+    if (outcome === 'full' || outcome === 'part' || outcome === 'over') {
       const amount =
-        s.cashPick === 'full'
+        outcome === 'full'
           ? stop.cash!.amount
-          : `${stop.cash!.currency} ${s.partAmount} of ${stop.cash!.amount}`;
+          : `${stop.cash!.currency} ${s.collected} of ${stop.cash!.amount}`;
       entries.push({
         ref: RECEIPT_NO,
         /* ⚠⚠ COPY-RULES: never "payment received", never "paid", never "posted",
@@ -290,8 +296,34 @@ export const canConfirmProof = (s: RunState) => s.photos.goods && s.photos.id &&
 
 /** Cash → complete: an explicit answer about the money, and — when part of it
  *  was taken — the amount the driver actually counted. */
-export const canCompleteCash = (s: RunState) =>
-  s.cashPick === 'full' || (s.cashPick === 'part' && /^[0-9]+(\.[0-9]{1,2})?$/.test(s.partAmount) && Number(s.partAmount) > 0);
+/* ── The money at the door, read off one typed figure ────────────────────
+   ⚠ `due` is the figure that came down with the run — already on the screen and
+   already labelled as not a balance. Comparing against it is not quoting one. */
+export const money = (v: string): number | null =>
+  /^\d{1,7}(\.\d{1,2})?$/.test(v.trim()) ? Number(v.trim()) : null;
+
+/** "USD 1 150.00" → 1150. Handles the thin spaces the design uses as separators. */
+export const dueAmount = (amount: string): number | null => {
+  const n = Number(amount.replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) ? n : null;
+};
+
+export function cashOutcome(s: RunState, amount: string): CashOutcome | null {
+  const got = money(s.collected);
+  if (got === null) return null;
+  if (got === 0) return 'none';
+  const due = dueAmount(amount);
+  if (due === null) return 'part';
+  if (got === due) return 'full';
+  return got > due ? 'over' : 'part';
+}
+
+/** Cash → complete needs a figure, and that figure must not be zero — zero goes
+ *  down the exception path instead, because the goods come back. */
+export const canCompleteCash = (s: RunState, amount: string) => {
+  const o = cashOutcome(s, amount);
+  return o === 'full' || o === 'part' || o === 'over';
+};
 
 export const queuedCount = (s: RunState) => s.trail.filter((t) => t.state !== 'Bound').length;
 

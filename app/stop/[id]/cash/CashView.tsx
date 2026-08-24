@@ -10,22 +10,24 @@
  *   · "Recorded on this device, not yet in the ledger."
  *     NEVER "Payment received", "Paid" or "Posted".
  *   · NEVER a balance. The figure that came down with the run is labelled as
- *     what it is and is not a balance. "I cannot see this account from here —
- *     the branch can tell them."
+ *     what it is. "I cannot see this account from here — the branch can tell
+ *     them." Nothing on this screen subtracts one figure from another.
  *   · The receipt number is PAY-<store>-<terminal>-<sequence>, minted on the
  *     device, terminal inside the number. NO `OFF-PAY-` PREFIX, EVER. Gaps are
  *     correct and are an audit feature.
  *
- * ⚠ The part-payment amount is TYPED BY THE DRIVER. The handoff hardcoded
- * "USD 600.00" — a figure from nowhere, on a receipt. Nothing on this screen
- * invents an amount, and nothing subtracts one figure from another to imply what
- * is left owing.
+ * ⚠⚠ Rebuilt 21 Aug: the three choice rows are gone and the driver types what he
+ * counted, straight away. Everything the rows used to say is now read off that
+ * one figure — but ZERO IS STILL AN OUTCOME, NOT A NUMBER. Nothing collected is
+ * a refusal with a fault attached and the goods come back; it is never a
+ * delivered stop that happened to earn nothing. Collapsing those two would be
+ * exactly the failure COPY-RULES exists to prevent, in a different noun.
  */
 
 import { useRouter } from 'next/navigation';
 import { CAPTURED, RECEIPT_NO, TRIP, stopById } from '@/lib/run';
-import { canCompleteCash, useRun } from '@/lib/state';
-import { ACC, Btn, Card, DIV, Fact, Note, SURF, SectionHead, WarnPanel } from '@/components/ui';
+import { canCompleteCash, cashOutcome, useRun } from '@/lib/state';
+import { ACC, Btn, Card, DIV, Fact, Note, SectionHead, WarnPanel } from '@/components/ui';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '←'];
 
@@ -33,7 +35,6 @@ export default function CashView({ id }: { id: number }) {
   const router = useRouter();
   const { s, set, completeStop } = useRun();
   const stop = stopById(id);
-  const ready = canCompleteCash(s);
 
   if (!stop.cash) {
     return (
@@ -62,21 +63,35 @@ export default function CashView({ id }: { id: number }) {
   }
 
   const cur = stop.cash.currency;
-  const typed = s.partAmount;
+  const typed = s.collected;
+  const outcome = cashOutcome(s, stop.cash.amount);
+  const ready = canCompleteCash(s, stop.cash.amount);
+  const refused = outcome === 'none';
 
   const press = (k: string) =>
     set((prev) => {
-      const d = prev.partAmount;
-      if (k === '←') return { partAmount: d.slice(0, -1) };
-      if (k === '.') return { partAmount: d.includes('.') ? d : d === '' ? '0.' : d + '.' };
+      const d = prev.collected;
+      if (k === '←') return { collected: d.slice(0, -1) };
+      if (k === '.') return { collected: d.includes('.') ? d : d === '' ? '0.' : d + '.' };
       const next = d + k;
-      // two decimals, and nothing silly long
-      if (/^\d{0,7}(\.\d{0,2})?$/.test(next)) return { partAmount: next };
+      if (/^\d{0,7}(\.\d{0,2})?$/.test(next)) return { collected: next };
       return {};
     });
 
-  const receiptAmount =
-    s.cashPick === 'full' ? stop.cash.amount : `${cur} ${typed} of ${stop.cash.amount}`;
+  /* ⚠ What the typed figure means, in one sentence each. Every one of these is
+     COPY-RULES: the part-payment line refuses to quote what is left, and the
+     over line points at the figure that came down rather than at an account
+     this device cannot see. */
+  const reading =
+    outcome === 'full'
+      ? 'The full amount, counted in front of the receiver.'
+      : outcome === 'part'
+        ? 'Part of it. The balance stays owing, and this device quotes no figure for it.'
+        : outcome === 'over'
+          ? 'More than the figure that came down with the run. Check it before you close the stop.'
+          : typed === ''
+            ? 'Count it in front of the receiver, then type it.'
+            : '';
 
   return (
     <div style={{ padding: '14px 18px 26px' }}>
@@ -97,88 +112,68 @@ export default function CashView({ id }: { id: number }) {
         </WarnPanel>
       </div>
 
+      {/* ── The one thing the driver does here ──────────────────────────── */}
       <div style={{ marginTop: 16 }}>
-        <SectionHead>What happened at the door</SectionHead>
+        <SectionHead>How much did you collect?</SectionHead>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-        <CashRow
-          label="Took the full amount"
-          sub={`${stop.cash.amount} in cash, counted in front of the receiver`}
-          picked={s.cashPick === 'full'}
-          onClick={() => set({ cashPick: 'full', partAmount: '' })}
-        />
-        <CashRow
-          label="Took part of it"
-          sub="The balance stays owing. This device quotes no figure for it."
-          picked={s.cashPick === 'part'}
-          onClick={() => set({ cashPick: 'part' })}
-        />
-        <CashRow
-          label="Customer would not pay"
-          sub="Reason PaymentNotMade · the goods come back with you"
-          picked={s.cashPick === 'none'}
-          /* ⚠ Straight to the failed screen with the reason preselected. Not
-             paying is an outcome with a fault on it, not a variant of paying. */
-          onClick={() => {
-            set({ cashPick: 'none', failReason: 'PaymentNotMade' });
-            router.push(`/stop/${stop.id}/failed`);
-          }}
-        />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 10,
+          marginTop: 10,
+          minHeight: 64,
+          border: `1px solid ${DIV}`,
+          borderLeft: `4px solid ${typed === '' ? 'transparent' : refused ? 'var(--color-text)' : ACC}`,
+          padding: '12px 14px',
+        }}
+      >
+        <span style={{ font: '600 15px Archivo, system-ui', opacity: 0.6 }}>{cur}</span>
+        <span style={{ font: '800 34px/1 Archivo, system-ui', letterSpacing: '-.02em' }}>
+          {typed || '—'}
+        </span>
       </div>
+      {reading && (
+        <div className="pretty" style={{ fontSize: 11, opacity: 0.68, marginTop: 6, lineHeight: 1.45 }}>
+          {reading}
+        </div>
+      )}
 
-      {/* ── The amount the driver actually counted ──────────────────────── */}
-      {s.cashPick === 'part' && (
-        <Card style={{ marginTop: 16 }}>
-          <SectionHead>Amount you counted</SectionHead>
-          <div
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
+        {KEYS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => press(k)}
+            className="keypad tap8"
             style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 8,
-              marginTop: 8,
-              minHeight: 52,
+              minHeight: 56,
               border: `1px solid ${DIV}`,
-              padding: '10px 12px',
+              background: 'transparent',
+              font: '600 20px Archivo, system-ui',
+              cursor: 'pointer',
+              color: 'inherit',
+              borderRadius: 0,
             }}
           >
-            <span style={{ font: '600 15px Archivo, system-ui', opacity: 0.6 }}>{cur}</span>
-            <span style={{ font: '800 26px/1 Archivo, system-ui', letterSpacing: '-.02em' }}>
-              {typed || '—'}
-            </span>
-          </div>
-          {/* ⚠ No remainder is computed here, and none is shown anywhere. */}
-          {/* ⚠ Slimmed 21 Aug, but the second half is COPY-RULES and stays: this
-              device never works out what is left. */}
-          <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
-            Type what you counted. This device does not work out what is left.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
-            {KEYS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => press(k)}
-                className="keypad tap8"
-                style={{
-                  minHeight: 56,
-                  border: `1px solid ${DIV}`,
-                  background: 'transparent',
-                  font: '600 20px Archivo, system-ui',
-                  cursor: 'pointer',
-                  color: 'inherit',
-                  borderRadius: 0,
-                }}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-        </Card>
+            {k}
+          </button>
+        ))}
+      </div>
+
+      {/* ── ⚠⚠ Zero is a refusal, not a delivery ────────────────────────── */}
+      {refused && (
+        <div style={{ marginTop: 16 }}>
+          <WarnPanel head="Nothing collected is a refusal, not a delivery">
+            Reason <strong>PaymentNotMade</strong>, fault Customer. Record it and the goods come back
+            with you — they are not left at the door.
+          </WarnPanel>
+        </div>
       )}
 
       {/* ── The receipt ─────────────────────────────────────────────────── */}
-      {(s.cashPick === 'full' || (s.cashPick === 'part' && ready)) && (
+      {ready && (
         <Card style={{ marginTop: 16 }}>
           <SectionHead>Receipt minted on this device</SectionHead>
           <div style={{ font: '800 22px Archivo, system-ui', letterSpacing: '-.01em', marginTop: 7 }}>
@@ -187,11 +182,14 @@ export default function CashView({ id }: { id: number }) {
           <div
             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12, fontSize: 12 }}
           >
-            <Fact label="Amount" value={receiptAmount} />
+            <Fact
+              label="Amount"
+              value={outcome === 'full' ? stop.cash.amount : `${cur} ${typed} of ${stop.cash.amount}`}
+            />
             <Fact label="Terminal" value={TRIP.terminal.terminalNo} />
             <Fact label="Taken" value={`${CAPTURED.cash} · offline`} />
-            {/* ⚠ Not "nearest branch" — the driver chooses at the debrief and the
-                nearest is not always the one he picks. See the debrief screen. */}
+            {/* ⚠ Not "nearest branch" — the driver chooses at the debrief, and
+                the nearest is not always the one he picks. */}
             <Fact label="Deposit at" value="Chosen at debrief" />
           </div>
           <Note style={{ marginTop: 12 }}>
@@ -201,62 +199,31 @@ export default function CashView({ id }: { id: number }) {
         </Card>
       )}
 
+      {/* ⚠ One primary action, and which one it is depends on the figure. A
+          refusal never wears the same button as a delivery. */}
       <Btn
         kind="primary"
         height={56}
         fontSize={15}
-        dim={!ready}
+        dim={!ready && !refused}
         style={{ width: '100%', marginTop: 16 }}
         onClick={() => {
+          if (refused) {
+            set({ failReason: 'PaymentNotMade' });
+            router.push(`/stop/${stop.id}/failed`);
+            return;
+          }
+          if (!ready) return;
           completeStop();
           router.push(`/stop/${stop.id}/closed`);
         }}
       >
-        {ready
-          ? `Complete stop ${stop.seq}`
-          : s.cashPick === 'part'
-            ? 'Type the amount you counted'
-            : 'Say what happened to the money'}
+        {refused
+          ? 'Record the exception'
+          : ready
+            ? `Complete stop ${stop.seq}`
+            : 'Type what you collected'}
       </Btn>
     </div>
-  );
-}
-
-function CashRow({
-  label,
-  sub,
-  picked,
-  onClick,
-}: {
-  label: string;
-  sub: string;
-  picked: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={picked ? undefined : 'tappable'}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'left',
-        minHeight: 58,
-        padding: 12,
-        border: `1px solid ${DIV}`,
-        borderLeft: `4px solid ${picked ? ACC : 'transparent'}`,
-        background: picked ? SURF : 'transparent',
-        color: 'inherit',
-        fontFamily: 'inherit',
-        cursor: 'pointer',
-        borderRadius: 0,
-      }}
-    >
-      <span style={{ display: 'block', font: '600 14px Archivo, system-ui' }}>{label}</span>
-      <span className="pretty" style={{ display: 'block', fontSize: 11, opacity: 0.7, marginTop: 3 }}>
-        {sub}
-      </span>
-    </button>
   );
 }

@@ -188,34 +188,61 @@ t = await text();
 ok('signature line reads 14:11', t.includes('Signed on the glass at 14:11'));
 ok('proof gate now open, and names the money', t.includes('Confirm delivery, then take the money'));
 
-/* ── 6. Cash: COPY-RULES ────────────────────────────────────────────── */
+/* ── 6. Cash: one typed figure, and COPY-RULES ──────────────────────── */
 await click('Confirm delivery, then take the money');
 await page.waitForTimeout(400);
-t = await text();
-ok('honesty panel is present', has(await phone(), 'I cannot see this account from here'));
-ok('gate names what is missing', t.includes('Say what happened to the money'));
-await click('Took the full amount');
 ph = await phone();
+ok('honesty panel is present', has(ph, 'I cannot see this account from here'));
+ok('the three choice rows are gone', !has(ph, 'Took the full amount') && !has(ph, 'Customer would not pay'));
+ok('the screen asks one question', has(ph, 'How much did you collect?'));
+ok('nothing is entered yet, and it says so', has(ph, 'Count it in front of the receiver'));
+ok('the action is dimmed and names what is missing', has(ph, 'Type what you collected'));
+ok('no receipt exists before a figure does', !has(ph, 'PAY-101-D204-000037'));
+
+const key = (k) => page.getByRole('button', { name: k, exact: true }).first().click();
+
+/* a part payment */
+for (const k of ['6', '0', '0']) await key(k);
+await page.waitForTimeout(250);
+ph = await phone();
+ok('a part payment is read off the figure', has(ph, 'Part of it. The balance stays owing'));
+ok('COPY-RULES: it quotes no figure for what is left', has(ph, 'quotes no figure for it') && !ph.includes('550'));
+ok('the receipt shows what was typed, against what came down', has(ph, 'USD 600 of USD 1 150.00'));
+
+/* over the figure that came down */
+await key('0');
+await page.waitForTimeout(250);
+ph = await phone();
+ok('more than the run figure is flagged, not refused', has(ph, 'More than the figure that came down'));
+
+/* ⚠⚠ zero is an outcome, not a number */
+await key('←');
+await key('←');
+await key('←');
+await key('←');
+await key('0');
+await page.waitForTimeout(250);
+ph = await phone();
+ok('⚠⚠ zero is a refusal, not a delivery', has(ph, 'Nothing collected is a refusal, not a delivery'));
+ok('zero names the reason and the fault', has(ph, 'PaymentNotMade') && has(ph, 'fault Customer'));
+ok('zero says the goods come back', has(ph, 'goods come back with you'));
+ok('zero mints no receipt', !has(ph, 'PAY-101-D204-000037'));
+ok('zero does not wear the delivery button', has(ph, 'Record the exception') && !has(ph, 'Complete stop 4'));
+
+/* the full amount */
+await key('←');
+for (const k of ['1', '1', '5', '0']) await key(k);
+await page.waitForTimeout(250);
+ph = await phone();
+ok('the full amount is read off the figure', has(ph, 'The full amount, counted in front of the receiver'));
 ok('THE sentence, verbatim', ph.includes('Recorded on this device, not yet in the ledger.'));
 ok('never "Payment received"', !/payment received/i.test(ph));
 ok('never "Paid" or "Posted" as a status', !/\bPosted\b/i.test(ph) && !/\bPaid\b/i.test(ph));
 ok('no OFF-PAY- prefix', !ph.includes('OFF-PAY'));
 ok('receipt number matches the console', ph.includes('PAY-101-D204-000037'));
 ok('receipt says no balance is printed', ph.includes('No balance is printed'));
+ok('the receipt shows the run figure for a full payment', has(ph, 'USD 1 150.00'));
 
-/* part payment types a real figure */
-await click('Took part of it');
-t = await text();
-ok('part payment refuses to complete without an amount', t.includes('Type the amount you counted'));
-ok('part payment offers a keypad, not a fixture', has(t, 'Amount you counted'));
-ok('no invented USD 600.00', !t.includes('600.00'));
-for (const k of ['6', '0', '0']) await page.getByRole('button', { name: k, exact: true }).first().click();
-await page.waitForTimeout(200);
-t = await text();
-ok('typed amount appears on the receipt', t.includes('USD 600 of USD 1 150.00'), t.split('\n').find((l) => l.includes('of USD')) ?? '');
-ok('no remainder is ever computed', !t.includes('550'));
-
-await click('Took the full amount');
 await click('Complete stop 4');
 await page.waitForTimeout(400);
 
