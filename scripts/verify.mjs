@@ -52,6 +52,8 @@ const click = async (label) => {
   await page.waitForTimeout(250);
 };
 
+let ph = '';
+
 /* ── 1. Every route renders ──────────────────────────────────────────── */
 const ROUTES = ['/', '/run/', '/run/route/', '/stop/4/', '/stop/4/proof/', '/stop/4/cash/', '/stop/4/failed/', '/stop/4/closed/', '/debrief/'];
 for (const r of ROUTES) {
@@ -89,12 +91,12 @@ ok('names the cost of the reorder', t.includes('15:10 window'));
 ok('leg text carries a real road leg', /1\.7 km, 2 min/.test(t), t.split('\n').find((l) => l.includes('Greendale ·')) ?? '');
 
 await click("Keep dispatcher");
-t = await text();
-ok('rejecting is recorded, not a no-op', t.includes('order kept'), 'trail row');
+ph = await phone();
+ok('rejecting is recorded, not a no-op', has(ph, 'recorded against the trip'), ph.split('\n').find((l) => l.includes('recorded')) ?? '');
 await click('Use this order');
-t = await text();
-ok('accepting is recorded with the driver\'s name', t.includes('order changed') && t.includes('T. Mukanya'));
-ok('button reads Order confirmed', t.includes('Order confirmed'));
+ph = await phone();
+ok('accepting says the change is logged with his name', has(ph, 'logged against the trip, with your name on it'));
+ok('button reads Order confirmed', has(ph, 'Order confirmed'));
 await go('/run/');
 t = await text();
 ok('accepted order changes km left to 42', /42 km left/.test(t), t.match(/·[^·]*km left/)?.[0] ?? '');
@@ -103,8 +105,8 @@ ok('accepted order changes km left to 42', /42 km left/.test(t), t.match(/·[^·
 await go('/stop/4/');
 t = await text();
 ok('stop 4 carries three consignment lines', t.includes('QA85Q7FAAUXKE') && t.includes('TV Bracket Ellis') && t.includes('HT-S40R'));
-ok('the TV is serialised and scanned', t.includes('#G-000004791204') && t.includes('Scanned onto load'));
-ok('the other two say no serial gate applies', (t.match(/not serialised, so no serial gate applies/g) || []).length === 2);
+ok('the TV is serialised and scanned', t.includes('#G-000004791204') && t.includes('Scanned onto LD-000377'));
+ok('the other two say no serial gate applies', (t.match(/Not serialised — no serial gate applies/g) || []).length === 2);
 ok('arrival names its provenance', t.includes('By geofence'));
 ok('gate is closed with a label saying why', has(await phone(), 'Answer all four checks and the test'));
 
@@ -193,7 +195,7 @@ t = await text();
 ok('honesty panel is present', has(await phone(), 'I cannot see this account from here'));
 ok('gate names what is missing', t.includes('Say what happened to the money'));
 await click('Took the full amount');
-let ph = await phone();
+ph = await phone();
 ok('THE sentence, verbatim', ph.includes('Recorded on this device, not yet in the ledger.'));
 ok('never "Payment received"', !/payment received/i.test(ph));
 ok('never "Paid" or "Posted" as a status', !/\bPosted\b/i.test(ph) && !/\bPaid\b/i.test(ph));
@@ -242,70 +244,127 @@ t = await text();
 ok('sign-off reference is dated 20 August', t.includes('DEP-BR-2026-08-20-0014'));
 ok('sign-off says it is still on the device', t.includes('still on this device until depot wifi'));
 
-/* ── 9. The framing ─────────────────────────────────────────────────── */
+/* ── 9. The framing, slimmed 21 Aug ─────────────────────────────────── */
+await go('/run/');
+t = await text();
+ok('the rail keeps its title', has(t, 'Vantage Driver') && has(t, 'TVSH Transport'));
+ok('the rail keeps the screen jumps', has(t, 'Jump to a screen') && has(t, 'Failed stop'));
+ok('the five assumptions are gone', !has(t, 'What this design assumes') && !has(t, 'mints its own receipt'));
+ok('the variant switchers are gone', !has(t, 'Stop-detail layout') && !has(t, 'One at a time'));
+ok('the record trail rail is gone by default', !has(t, 'Live record trail'));
+ok('Reset run survives', has(t, 'Reset run'));
+
+/* ⚠ Nothing was deleted, only taken off the screen. Each of these must still be
+   reachable by URL or the design review after the 26th has to rebuild it. */
+await go('/run/?trail=1');
+t = await text();
+ok('?trail=1 brings the record trail back', has(t, 'Live record trail') && has(t, 'POD-000188397'));
+
 await go('/run/?bare=1');
 t = await text();
-ok('?bare=1 drops both rails', !has(t, 'Live record trail') && !has(t, 'What this design assumes'));
+ok('?bare=1 drops the rail entirely', !has(t, 'Jump to a screen') && !has(t, 'Vantage Driver'));
+ok('?bare=1 keeps the phone', has(t, "Today's run"));
+
+/* ⚠ back off ?bare=1 first — the rail is hidden there, so Reset run is not on
+   the page to click. */
 await go('/run/');
-t = await text();
-ok('rails are back without the flag', has(t, 'Live record trail'));
-
-/* persistence across a hard reload */
-await page.reload({ waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(450);
-t = await text();
-ok('a hard reload does not lose the run', t.includes('4 of 8 delivered'), t.split('\n').find((l) => l.includes('delivered ·')) ?? '');
-
-/* Reset run, which is also how the variants get a clean stop to render. */
 await click('Reset run');
 await page.waitForTimeout(400);
-await go('/run/');
+await go('/stop/5/?layout=cards');
 t = await text();
-ok('Reset run puts the day back to 3 delivered', has(t, '3 of 8 delivered'), t.split('\n').find((l) => l.includes('delivered ·')) ?? '');
-
-/* ⚠⚠ The cold-URL case, which Reset run has just created. Somebody shares
-   /stop/N/closed/ mid-demo, or reloads it after a reset. It used to print
-   "Stop N closed" over an empty record list — a screen reporting work it did not
-   do, which is the worst defect class in this codebase. */
-await go('/stop/6/closed/');
-ph = await phone();
-ok('a cold Recorded screen does not claim the stop closed', has(ph, 'Stop 6 is not closed'), ph.split('\n').find((l) => l.includes('Stop 6')) ?? '');
-ok('it says nothing was written, and names the stop', has(ph, 'Nothing has been written for Borrowdale branch'));
-ok('it offers no "next stop" over an empty list', !has(ph, 'Next stop ·'));
-
-/* variants */
-await go('/stop/5/');
-await page.getByRole('button', { name: 'Cards', exact: true }).click();
-await page.waitForTimeout(250);
+ok('?layout=cards still reaches the cards layout', has(t, 'Unanswered'), 'per-check status column is unique to cards');
+await go('/stop/5/?layout=swipe');
 t = await text();
-ok('cards layout switches live', has(t, 'Unanswered'), 'per-check status column is unique to the cards layout');
-await page.getByRole('button', { name: 'One at a time', exact: true }).click();
-await page.waitForTimeout(250);
+ok('?layout=swipe still reaches the swipe layout', has(t, 'Check 01 of 4'));
+await go('/stop/5/?layout=checklist');
 t = await text();
-ok('swipe layout switches live', has(t, 'Check 01 of 4'));
-await page.getByRole('button', { name: 'Checklist', exact: true }).click();
-await page.waitForTimeout(200);
+ok('checklist is what the execs see', !has(t, 'Unanswered') && !has(t, 'Check 01 of 4'));
 
 /* ⚠ navMode is not a caption change: in `map` the suggestion sits in the bottom
    sheet under the map, in `list` it sits above it. Assert the geometry, not the
    wording, or the test passes on a switch that moved nothing. */
-await go('/run/route/');
-await page.getByRole('button', { name: 'Map first', exact: true }).click();
-await page.waitForTimeout(500);
 const geom = async () => {
-  const card = await page.getByText('A shorter order exists').first().boundingBox();
+  const card = await page.getByText(/A shorter order exists|Running your confirmed order/).first().boundingBox();
   const map = await page.locator('.leaflet-container').first().boundingBox();
   return { card: card?.y ?? 0, map: map?.y ?? 0 };
 };
+await go('/run/route/?nav=map');
+await page.waitForTimeout(600);
 const gMap = await geom();
-await page.getByRole('button', { name: 'Order first', exact: true }).click();
-await page.waitForTimeout(500);
+await go('/run/route/?nav=list');
+await page.waitForTimeout(600);
 const gList = await geom();
 ok(
-  'navMode switches live — the card moves above the map',
+  '?nav= still switches the arrangement — the card moves above the map',
   gMap.card > gMap.map && gList.card < gList.map,
-  `map mode card@${Math.round(gMap.card)} map@${Math.round(gMap.map)} · list mode card@${Math.round(gList.card)} map@${Math.round(gList.map)}`,
+  `map card@${Math.round(gMap.card)} map@${Math.round(gMap.map)} · list card@${Math.round(gList.card)} map@${Math.round(gList.map)}`,
 );
+await go('/run/route/?nav=map');
+
+/* ── 9a. The slimming: explaining gone, claims kept ─────────────────── */
+await go('/stop/4/');
+ph = await phone();
+ok('check hints are gone from the checklist', !has(ph, 'Read the consignment lines above out loud'));
+ok('the checks themselves are untouched', has(ph, 'Items and quantity match the note') && has(ph, 'Receiver is the customer'));
+ok('the serial provenance survives as a word', has(ph, 'Scanned onto LD-000377'));
+ok('the serial lecture is gone', !has(ph, 'a different grade of fact'));
+ok('an unserialised line still says so', has(ph, 'Not serialised — no serial gate applies'));
+ok('arrival provenance survives', has(ph, 'By geofence'));
+
+await go('/stop/4/proof/');
+ph = await phone();
+ok('the proof intro is gone', !has(ph, 'Three pieces of evidence'));
+ok('the two-drains note is gone', !has(ph, 'never queues behind megabytes'));
+ok('but a photograph still says it is held for wifi', has(ph, 'held for wifi') || has(ph, 'Photograph of the document'));
+
+/* ── 9b. ⚠⚠ Fuel and mileage, added 21 Aug ──────────────────────────── */
+await click('Reset run');
+await page.waitForTimeout(400);
+await go('/');
+ph = await phone();
+ok('sign-in asks for the odometer out', has(ph, 'Odometer out'));
+ok('sign-in shows the last known reading and where it came from', has(ph, '184 120') && has(ph, 'came down with the run'));
+
+await page.locator('input[inputmode="numeric"]').first().fill('184120');
+await page.waitForTimeout(200);
+await click('Sign in ·');
+await page.waitForTimeout(400);
+
+await go('/debrief/');
+ph = await phone();
+ok('the debrief has no distance before the closing reading', has(ph, 'needs the closing reading'));
+const inputs = page.locator('[data-phone="screen"] input[inputmode="numeric"]');
+await inputs.nth(0).fill('184226');
+await inputs.nth(1).fill('62.4');
+await page.waitForTimeout(300);
+ph = await phone();
+ok('distance is the two typed readings, subtracted', has(ph, '106 km'), ph.split('\n').find((l) => l.includes('106')) ?? '');
+ok('the distance names its provenance', has(ph, 'by odometer, typed by you'));
+ok('⚠⚠ NO km/l is printed from one fill', !/\d\s*km\/l\s*(this run|on this run)/i.test(ph) && !has(ph, '1.7 km/l'));
+ok('the screen says one fill is not an efficiency figure', has(ph, 'One fill is not an efficiency figure'));
+ok('it names the standard without dividing into it', has(ph, '6.64 km/l'));
+const costField = page.locator('[data-phone="screen"] input').nth(2);
+ok(
+  'the fuel cost is optional and starts empty',
+  (await costField.inputValue()) === '' && (await costField.getAttribute('placeholder')) === 'not entered',
+);
+
+await click('Sign off the run');
+await page.waitForTimeout(400);
+await go('/debrief/?trail=1');
+t = await text();
+ok('sign-off writes an ODO row', has(t, 'ODO-AGE5599-184226'), t.split('\n').find((l) => l.includes('ODO-')) ?? '');
+ok('the ODO row carries the distance and says it was typed', has(t, '106 km on this run') && has(t, 'typed by you'));
+ok('sign-off writes a FUEL row', has(t, 'FUEL-AGE5599-184226'));
+ok('the FUEL row goes to the per-vehicle fleet cost', has(t, 'fleet cost, per-vehicle'));
+ok('the FUEL row refuses to claim a burn rate', has(t, 'One fill is not an efficiency figure'));
+ok('the deposit row still lands at BR', has(t, 'DEP-BR-2026-08-20-0014'));
+
+/* persistence across a hard reload */
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(500);
+const odoAfterReload = await page.locator('[data-phone="screen"] input').first().inputValue();
+ok('a hard reload keeps the typed readings', odoAfterReload === '184226', `odometer in reads "${odoAfterReload}"`);
 
 /* ── 10. Errors ─────────────────────────────────────────────────────── */
 const realConsoleErrors = consoleErrors.filter(

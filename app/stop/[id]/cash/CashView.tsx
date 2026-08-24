@@ -148,9 +148,10 @@ export default function CashView({ id }: { id: number }) {
             </span>
           </div>
           {/* ⚠ No remainder is computed here, and none is shown anywhere. */}
-          <div className="pretty" style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
-            Type what you actually took, counted in front of the receiver. This device does not work
-            out what is left — the branch tells the customer that.
+          {/* ⚠ Slimmed 21 Aug, but the second half is COPY-RULES and stays: this
+              device never works out what is left. */}
+          <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
+            Type what you counted. This device does not work out what is left.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
             {KEYS.map((k) => (

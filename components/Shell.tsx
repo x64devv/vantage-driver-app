@@ -1,16 +1,31 @@
 'use client';
 
-/* The demo framing: left rail, the phone, right rail.
+/* The demo framing: a title block, screen jumps, and the phone.
  *
- * ⚠ The rails are NOT part of the phone and are labelled as such. They exist so
- * a room can see the record trail while the driver's screen stays a driver's
- * screen. `?bare=1` drops both so the phone can go full-screen on a projector.
+ * ⚠⚠ Slimmed 21 Aug on internal feedback — the demo read as too busy for an
+ * executive audience. Removed: the five assumptions (Wyne says them out loud),
+ * the two variant switchers, and the live record trail rail.
+ *
+ * ⚠ Nothing was deleted, only taken off the screen. All of it is still reachable
+ * by URL, so the design review after the 26th does not have to rebuild it:
+ *
+ *     ?layout=checklist | cards | swipe     the stop-detail layout
+ *     ?nav=map | list                       the route arrangement
+ *     ?trail=1                              the live record trail rail
+ *     ?bare=1                               drop the rail, phone only (projector)
+ *
+ * ⚠⚠ Losing the trail rail costs the demo its most visible argument — that no
+ * action is a claim without a record behind it. It is NOT gone from the product:
+ * the Recorded screen still shows what each stop wrote and where it went, and
+ * the queue chip in the app bar still counts what is waiting. But the room now
+ * only sees that when the driver closes a stop. If beat 13 is to land, somebody
+ * has to point at the Recorded screen while it is up.
  */
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useEffect, type ReactNode } from 'react';
 import { CLOCKS, STOPS, TRIP, stopById } from '@/lib/run';
-import { queuedCount, useRun } from '@/lib/state';
+import { queuedCount, useRun, type NavMode, type StopLayout } from '@/lib/state';
 import { ACC, AC7, BG, DIV, INK, SURF, TrailRow } from './ui';
 
 const P = { bezelW: 413, bezelH: 872, screenW: 393, screenH: 852 };
@@ -42,7 +57,24 @@ function ShellInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const params = useSearchParams();
   const bare = params.get('bare') === '1';
+  const showTrail = params.get('trail') === '1';
   const { s, set, reset, ready } = useRun();
+
+  /* ⚠ The variant switchers left the rail, so the URL is the only way in. Applied
+     once the store has loaded, so it wins over whatever localStorage held. */
+  const layoutParam = params.get('layout');
+  const navParam = params.get('nav');
+  useEffect(() => {
+    if (!ready) return;
+    const patch: { stopLayout?: StopLayout; navMode?: NavMode } = {};
+    if (layoutParam === 'checklist' || layoutParam === 'cards' || layoutParam === 'swipe') {
+      if (layoutParam !== s.stopLayout) patch.stopLayout = layoutParam;
+    }
+    if (navParam === 'map' || navParam === 'list') {
+      if (navParam !== s.navMode) patch.navMode = navParam;
+    }
+    if (Object.keys(patch).length) set(patch);
+  }, [ready, layoutParam, navParam, s.stopLayout, s.navMode, set]);
 
   const { key, stopId } = screenOf(pathname);
   const stop = stopById(stopId ?? s.stopId);
@@ -91,10 +123,8 @@ function ShellInner({ children }: { children: ReactNode }) {
       }}
     >
       <div
-        /* ⚠ Marks the boundary of the phone. The rails quote sentences the app
-           must NEVER say (assumption 04 quotes "payment received"), so a
-           copy-rule check that reads the whole page will find them there and be
-           wrong. scripts/verify.mjs asserts inside this element only. */
+        /* ⚠ Marks the boundary of the phone, so scripts/verify.mjs can assert
+           copy rules inside it without catching the rail's own text. */
         data-phone="screen"
         style={{
           position: 'relative',
@@ -123,8 +153,6 @@ function ShellInner({ children }: { children: ReactNode }) {
         >
           <span>{clock}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {/* ⚠ "no signal" is a fact about the device, stated once. The queue
-                chip below is the only other offline indicator — no banner. */}
             <span style={{ fontSize: 9, letterSpacing: '.08em' }}>no signal</span>
             <span
               style={{
@@ -189,7 +217,9 @@ function ShellInner({ children }: { children: ReactNode }) {
                   {title}
                 </div>
               </div>
-              {/* Queue chip — the only offline indicator on the screen. */}
+              {/* ⚠⚠ With the trail rail gone, this chip is the only thing on screen
+                  saying anything is still waiting to leave the device. It carries
+                  more weight than it used to. */}
               <div
                 style={{
                   flex: 'none',
@@ -251,21 +281,24 @@ function ShellInner({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
+        minHeight: '100vh',
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 40,
+        justifyContent: 'center',
+        gap: 48,
         padding: '48px 56px',
         fontFamily: 'var(--font-body)',
         color: INK,
       }}
     >
-      <LeftRail go={go} />
+      <Rail />
       {phone}
-      <RightRail />
+      {showTrail && <TrailRail />}
     </div>
   );
 
-  function LeftRail({ go }: { go: (href: string) => void }) {
+  /* ── The rail: a title block and the screen jumps. Nothing else. ──────── */
+  function Rail() {
     const jumps: [string, string][] = [
       ['Sign in', '/'],
       ["Today's run", '/run'],
@@ -277,19 +310,8 @@ function ShellInner({ children }: { children: ReactNode }) {
       ['Debrief', '/debrief'],
     ];
 
-    const layoutNote =
-      s.stopLayout === 'checklist'
-        ? 'everything visible at once, fastest for a driver who knows the drill.'
-        : s.stopLayout === 'cards'
-          ? 'each check gets weight and a status of its own — good for training.'
-          : 'one question filling the screen, hardest to answer without reading.';
-    const navNote =
-      s.navMode === 'map'
-        ? 'the shape of the day, with the stop list underneath.'
-        : 'the optimised order up top; the map confirms it.';
-
     return (
-      <div style={{ width: 360, flex: 'none', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ width: 320, flex: 'none', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div
             style={{
@@ -319,51 +341,17 @@ function ShellInner({ children }: { children: ReactNode }) {
         </div>
         <div style={{ height: 2, background: DIV }} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <RailLabel>What this design assumes</RailLabel>
-          <div style={{ display: 'grid', gap: 10, fontSize: 13, lineHeight: 1.45 }}>
-            {ASSUMPTIONS.map((a, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10 }}>
-                <span style={{ color: ACC, fontWeight: 600 }}>{String(i + 1).padStart(2, '0')}</span>
-                <span className="pretty">{a}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ height: 2, background: DIV }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <RailLabel>Stop-detail layout</RailLabel>
-          <Seg
-            options={[
-              ['checklist', 'Checklist'],
-              ['cards', 'Cards'],
-              ['swipe', 'One at a time'],
-            ]}
-            value={s.stopLayout}
-            onPick={(v) => set({ stopLayout: v as typeof s.stopLayout, swipeIdx: 0 })}
-          />
-          <RailNote>
-            Now: <strong>{s.stopLayout === 'checklist' ? 'Checklist' : s.stopLayout === 'cards' ? 'Cards' : 'One at a time'}</strong> — {layoutNote}
-          </RailNote>
-
-          <RailLabel style={{ marginTop: 6 }}>Navigation</RailLabel>
-          <Seg
-            options={[
-              ['map', 'Map first'],
-              ['list', 'Order first'],
-            ]}
-            value={s.navMode}
-            onPick={(v) => set({ navMode: v as typeof s.navMode })}
-          />
-          <RailNote>
-            Now: <strong>{s.navMode === 'map' ? 'Map first' : 'Order first'}</strong> — {navNote}
-          </RailNote>
-        </div>
-        <div style={{ height: 2, background: DIV }} />
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <RailLabel>Jump to a screen</RailLabel>
+          <div
+            style={{
+              font: '600 10px/1 Archivo, system-ui',
+              letterSpacing: '.14em',
+              textTransform: 'uppercase',
+              color: 'color-mix(in srgb, var(--color-text) 55%, transparent)',
+            }}
+          >
+            Jump to a screen
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {jumps.map(([label, href]) => (
               <button
@@ -404,16 +392,14 @@ function ShellInner({ children }: { children: ReactNode }) {
               Reset run
             </button>
           </div>
-          <RailNote>
-            The rails are not part of the phone. <strong>?bare=1</strong> drops both so the screen can
-            go full width on a projector.
-          </RailNote>
         </div>
       </div>
     );
   }
 
-  function RightRail() {
+  /* ⚠ Off by default since 21 Aug; `?trail=1` brings it back for a design review
+     or a rehearsal where the room needs to see the outbox filling up. */
+  function TrailRail() {
     return (
       <div style={{ width: 330, flex: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
@@ -430,18 +416,6 @@ function ShellInner({ children }: { children: ReactNode }) {
           <h2 style={{ font: '800 24px/1.05 Archivo, system-ui', letterSpacing: '-.02em', margin: '8px 0 0' }}>
             Everything the driver does, and where it went
           </h2>
-          <p
-            className="pretty"
-            style={{
-              margin: '8px 0 0',
-              fontSize: 13,
-              lineHeight: 1.5,
-              color: 'color-mix(in srgb, var(--color-text) 70%, transparent)',
-            }}
-          >
-            This panel is not part of the phone. It is here so the room can see that no action is a
-            claim without a record behind it.
-          </p>
         </div>
         <div style={{ height: 2, background: DIV }} />
         <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${DIV}` }}>
@@ -454,107 +428,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           serial scan, the load-and-seal flow and the receipt scan at a far-end branch live upstream of
           this run — the app reads their result at the door.
         </div>
-        <div
-          className="pretty"
-          style={{ padding: 12, borderLeft: `4px solid ${ACC}`, background: BG, fontSize: 12, lineHeight: 1.5 }}
-        >
-          <strong style={{ fontFamily: 'Archivo, system-ui' }}>Next, if you want it:</strong> the
-          dispatch scan with the mismatch block, a driver-side exceptions queue, and the same three
-          screens in Shona.
-        </div>
       </div>
     );
   }
-}
-
-const ASSUMPTIONS: ReactNode[] = [
-  <>
-    The device is a company terminal (T9, <strong>D204</strong>) — it mints its own receipt numbers
-    offline, so nothing waits on signal.
-  </>,
-  <>
-    Serials were bound by the <strong>dispatch scan</strong> at the warehouse. The driver at the door
-    reads them; he does not choose them.
-  </>,
-  <>
-    The functional test happens <strong>before</strong> a signature is asked for, and the line set
-    locks at the signature.
-  </>,
-  <>
-    Money says <em>“recorded on this device, not yet in the ledger”</em> — never “payment received”,
-    and never a balance.
-  </>,
-  <>
-    Arrival is a <strong>geofence</strong> fact where we have one, a button press where we don&rsquo;t
-    — and the app says which.
-  </>,
-];
-
-function RailLabel({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div
-      style={{
-        font: '600 10px/1 Archivo, system-ui',
-        letterSpacing: '.14em',
-        textTransform: 'uppercase',
-        color: 'color-mix(in srgb, var(--color-text) 55%, transparent)',
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function RailNote({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="pretty"
-      style={{
-        fontSize: 12,
-        lineHeight: 1.45,
-        color: 'color-mix(in srgb, var(--color-text) 65%, transparent)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Seg({
-  options,
-  value,
-  onPick,
-}: {
-  options: [string, string][];
-  value: string;
-  onPick: (v: string) => void;
-}) {
-  return (
-    <div style={{ display: 'flex', border: `1px solid ${DIV}` }}>
-      {options.map(([v, label], i) => (
-        <button
-          key={v}
-          type="button"
-          onClick={() => onPick(v)}
-          className={value === v ? undefined : 'tap8'}
-          style={{
-            flex: 1,
-            minHeight: 44,
-            padding: '0 10px',
-            border: 0,
-            borderLeft: i ? `1px solid ${DIV}` : undefined,
-            background: value === v ? ACC : 'transparent',
-            color: value === v ? BG : 'inherit',
-            font: '600 12px Archivo, system-ui',
-            textAlign: 'left',
-            cursor: 'pointer',
-            borderRadius: 0,
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 }

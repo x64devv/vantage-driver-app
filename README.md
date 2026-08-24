@@ -26,7 +26,14 @@ npm start          # serve.mjs, zero dependencies → http://localhost:4173/
 ⚠ **`out/index.html` will not open from `file://`.** Next writes absolute `/_next/…` paths, so the
 stylesheet and the JavaScript never load. Use `npm start`.
 
-`?bare=1` on any route drops the two rails so the phone goes full-screen on a projector.
+The rail beside the phone carries a title and the screen jumps, nothing else. Four URL switches:
+
+| | |
+|---|---|
+| `?bare=1` | drop the rail — the phone full-screen, for a projector |
+| `?trail=1` | show the live record trail beside the phone |
+| `?layout=cards` · `?layout=swipe` | the other two stop-detail layouts |
+| `?nav=list` | the optimised order above the map instead of below it |
 
 ```bash
 npm run routes                 # refetch the OSRM road cache (needs a connection)
@@ -47,17 +54,20 @@ node scripts/verify.mjs        # drive the exported app in a browser and assert 
 | `/stop/[id]/closed` | Recorded — what the stop wrote and where it went |
 | `/debrief` | Debrief — counts, cash, deposit branch, sign-off |
 
-Two variants ship as live switches in the left rail and persist to `localStorage`: the stop-detail
-layout (`checklist` · `cards` · `swipe`) and the navigation mode (`map` · `list`).
+The driver types his own odometer readings — out at sign-in, in at the debrief — and the litres
+drawn. The debrief shows the distance between the two readings and **deliberately shows no km/l**:
+litres drawn is a tank fill, not fuel burned, and one fill is not an efficiency figure.
 
 ## What is true, and what is invented
 
 **Real:** every road kilometre and minute on every screen, from OSRM (`lib/routes-cache.ts`); the
 branch codes, from TVSH's own list; invoice 414414 and its serial; the trip, vehicle, driver and
-crew, which match the console's record for that invoice.
+crew, which match the console's record for that invoice; and the 6.64 km/l fleet standard, from the
+console's TM-5.
 
 **Invented, openly:** customer names and addresses, consignment numbers, SKUs, phone numbers, the
-odometer and fuel figures, and the staff numbers. `lib/run.ts` marks each of them.
+odometer and fuel figures, and the staff numbers. `lib/run.ts` marks each of them. The price paid at
+the pump is not captured at all — that is a figure a finance director would check.
 
 **Deliberately absent:** any photograph of an identity document. The capture slots are `CAMERA` →
 `TAKEN` placeholders, and they stay that way until a real camera is wired in the Kotlin build.

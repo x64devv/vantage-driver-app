@@ -126,18 +126,22 @@ export default function StopView({ id }: { id: number }) {
                 <span style={{ font: '600 11px Archivo, system-ui', letterSpacing: '.02em' }}>
                   {serialised
                     ? `Serial ${line.serial} · bound at dispatch ${line.boundAt ?? ''}`.trim()
-                    : line.serial ?? 'Not serialised'}
+                    : (line.serial ?? 'Not serialised — no serial gate applies')}
                 </span>
               </div>
-              {/* ⚠ COPY-RULES: a serial says HOW it was captured. Scanned and
-                  typed are different grades of fact, and an unserialised line
-                  says so plainly rather than showing a blank where a serial
-                  would be. */}
-              <div className="pretty" style={{ fontSize: 10, opacity: 0.6, marginTop: 5 }}>
-                {serialised
-                  ? `${line.capturedBy === 'Scanned' ? 'Scanned' : 'Typed'} onto load ${line.boundOnLoadUnit ?? TRIP.load} by you. Not typed — a different grade of fact.`
-                  : 'This line is not serialised, so no serial gate applies.'}
-              </div>
+              {/* ⚠ COPY-RULES: a serial still says HOW it was captured — scanned
+                  and typed are different grades of fact. Slimmed 21 Aug to the
+                  word itself; the sentence explaining why was the explaining, the
+                  word is the claim.
+                  ⚠ An unserialised line carries no footnote at all: it said
+                  "Not serialised" in the strip and "Not serialised — no serial
+                  gate applies" underneath, which is the same claim twice. The
+                  strip now carries the whole of it. */}
+              {serialised && (
+                <div style={{ fontSize: 10, opacity: 0.6, marginTop: 5 }}>
+                  {`${line.capturedBy === 'Scanned' ? 'Scanned' : 'Typed'} onto ${line.boundOnLoadUnit ?? TRIP.load}`}
+                </div>
+              )}
             </div>
           );
         })}
@@ -254,11 +258,13 @@ function Checks({ layout }: { layout: StopLayout }) {
                 >
                   {String(i + 1).padStart(2, '0')}
                 </span>
+                {/* ⚠ The hint under each check went on 21 Aug. It explained how
+                    to do the check; the check itself is the claim, and a driver
+                    who has run this route for a year does not read it twice. It
+                    survives in the swipe layout, where one check owns the screen
+                    and there is room for it. */}
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', font: '600 14px/1.3 Archivo, system-ui' }}>{c.label}</span>
-                  <span className="pretty" style={{ display: 'block', fontSize: 11, opacity: 0.65, marginTop: 3 }}>
-                    {c.hint}
-                  </span>
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -304,9 +310,6 @@ function Checks({ layout }: { layout: StopLayout }) {
                 </span>
               </div>
               <div style={{ font: '600 16px/1.25 Archivo, system-ui', marginTop: 10 }}>{c.label}</div>
-              <div className="pretty" style={{ fontSize: 12, opacity: 0.7, marginTop: 5, lineHeight: 1.4 }}>
-                {c.hint}
-              </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 <Choice label="Yes" picked={v === 'yes'} tone="yes" height={46} onClick={() => answer(c.id, 'yes')} />
                 <Choice label="No" picked={v === 'no'} tone="no" height={46} onClick={() => answer(c.id, 'no')} />

@@ -12,7 +12,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  CAPTURED, CHECKS, RECEIPT_NO, SEEDED_TRAIL, STOPS, TRIP,
+  CAPTURED, CHECKS, RECEIPT_NO, SEEDED_TRAIL, STOPS, TRIP, VEHICLE,
   stopById, type CheckId, type DepositCode, type ReasonCode, REASONS,
 } from './run';
 
@@ -50,6 +50,14 @@ export type RunState = {
    *  amount, and it never derives a balance from it. */
   partAmount: string;
   failReason: ReasonCode | null;
+  /* ⚠ Fuel and mileage, added 21 Aug. All three are TYPED BY THE DRIVER and held
+     as the strings he typed — never parsed into a number and re-formatted, so
+     what the trail records is what he entered. Blank means blank: the debrief
+     says it cannot show a distance rather than inventing one. */
+  odoOut: string;
+  odoIn: string;
+  litres: string;
+  fuelCost: string;
   deposit: DepositCode;
   signedOff: boolean;
   done: Partial<Record<number, Outcome>>;
@@ -75,6 +83,10 @@ export const initialState = (): RunState => ({
   cashPick: null,
   partAmount: '',
   failReason: null,
+  odoOut: '',
+  odoIn: '',
+  litres: '',
+  fuelCost: '',
   deposit: 'BR',
   signedOff: false,
   /* Stops 1–3 were delivered this morning; the run starts mid-day at stop 4. */
@@ -291,3 +303,25 @@ export const stopStatus = (s: RunState, id: number): 'delivered' | 'failed' | 'c
 };
 
 export const allStops = STOPS;
+
+/* ── Fuel and mileage ────────────────────────────────────────────────────
+   ⚠ Distance is the difference between two readings the driver typed, and
+   nothing else. If either is missing there is no distance — the screen says so
+   rather than falling back to the routed estimate, which measures a different
+   thing (the plan, not the wheels). */
+const num = (v: string) => (/^\d{1,7}(\.\d{1,2})?$/.test(v.trim()) ? Number(v.trim()) : null);
+
+export const odoDistance = (s: RunState): number | null => {
+  const a = num(s.odoOut);
+  const b = num(s.odoIn);
+  if (a === null || b === null || b < a) return null;
+  return b - a;
+};
+
+export const litresDrawn = (s: RunState) => num(s.litres);
+
+/** ⚠⚠ Deliberately absent: a km/l for this run. Litres drawn is a tank fill, not
+ *  fuel burned. 62.4 L over 106 km would print 1.7 km/l against a 6.64 standard
+ *  and read as a disaster that did not happen. Efficiency needs two consecutive
+ *  fills; the app captures the pair and refuses to divide half of it. */
+export const VEHICLE_REG = VEHICLE.reg;

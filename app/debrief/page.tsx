@@ -1,6 +1,7 @@
 'use client';
 
-/* 9 · Debrief — close the run and put the cash somewhere the system knows about.
+/* 9 · Debrief — close the run, put the cash somewhere the system knows about,
+ * and hand back the vehicle with a reading on it.
  *
  * ⚠⚠ The deposit branch is the point of this screen. TRP-004 §6.4: the money is
  * recorded against WHERE IT ACTUALLY WENT, not against the branch that raised the
@@ -9,16 +10,20 @@
  * Changing the branch here means changing the console too.
  *
  * ⚠ The distances are real road distances from the run's final stop, measured by
- * OSRM (lib/routes-cache.ts), and they move when the driver confirms the
- * optimised order — because the run then ends at Msasa instead of Hatfield. The
- * NEAREST tag goes wherever OSRM says, which is Avondale, not Borrowdale.
+ * OSRM (lib/routes-cache.ts). The NEAREST tag goes wherever OSRM says, which is
+ * Avondale, not Borrowdale.
+ *
+ * ⚠⚠ Fuel and mileage, added 21 Aug. Both readings are TYPED. The distance is the
+ * difference between them and nothing else — not the routed estimate, which
+ * measures the plan rather than the wheels. And there is deliberately NO km/l:
+ * litres drawn is a tank fill, not fuel burned. See lib/run.ts §VEHICLE.
  */
 
 import { useRouter } from 'next/navigation';
-import { DEBRIEF, STOPS, TRIP, stopById } from '@/lib/run';
+import { DEBRIEF, STOPS, TRIP, VEHICLE, fmtKm, stopById } from '@/lib/run';
 import { depositNote, depositRows } from '@/lib/derive';
-import { queuedCount, useRun } from '@/lib/state';
-import { ACC, BG, Btn, Card, DIV, Fact, Note, SURF, SectionHead } from '@/components/ui';
+import { litresDrawn, odoDistance, queuedCount, useRun, type TrailEntry } from '@/lib/state';
+import { ACC, BG, Btn, Card, DIV, Note, SURF, SectionHead } from '@/components/ui';
 
 export default function Debrief() {
   const router = useRouter();
@@ -27,9 +32,9 @@ export default function Debrief() {
   const delivered = STOPS.filter((x) => s.done[x.id] === 'delivered').length;
   const failed = STOPS.filter((x) => s.done[x.id] === 'failed').length;
 
-  /* ⚠ Cash held is what the driver actually took on this run — the amount he
-     typed for a part payment, or the full figure, and nothing at all if he took
-     nothing. It is never the sum of what was due. */
+  /* ⚠ Cash held is what the driver actually took — the amount he typed for a part
+     payment, or the full figure, and nothing at all if he took nothing. It is
+     never the sum of what was due. */
   const cashStop = stopById(4);
   const usdHeld =
     s.cashPick === 'full'
@@ -39,9 +44,55 @@ export default function Debrief() {
         : 'USD 0.00';
 
   const rows = depositRows(s.orderAccepted);
-  const lastStop = stopById(
-    (s.orderAccepted ? TRIP.optimisedOrder : TRIP.dispatcherOrder).slice(-1)[0],
-  );
+  const distance = odoDistance(s);
+  const litres = litresDrawn(s);
+
+  const signOff = () => {
+    if (s.signedOff) return;
+    const branch = rows.find((b) => b.code === s.deposit)!;
+    const entries: TrailEntry[] = [];
+
+    entries.push({
+      ref: `DEP-${s.deposit}-${TRIP.date}-0014`,
+      detail:
+        `${usdHeld} handed to the safe at ${branch.label.split(' · ')[1]}, ` +
+        `${s.deposit === 'VE' ? 'which also raised the invoice' : 'not the branch that raised the invoice'}. ` +
+        `Signed off ${DEBRIEF.signedOffAt} by ${TRIP.driver.name}.`,
+      dest: 'Queued · deposit register',
+      state: 'Queued',
+    });
+
+    /* ⚠ Only written when there is something to write. A vehicle row with no
+       reading behind it is the defect this whole app exists to argue against. */
+    if (s.odoIn) {
+      entries.push({
+        ref: `ODO-${VEHICLE.reg}-${s.odoIn}`,
+        detail:
+          `Closing odometer ${fmtKm(Number(s.odoIn))} km, typed by you` +
+          (distance !== null ? ` · ${fmtKm(distance)} km on this run` : ' · no opening reading, so no distance'),
+        dest: 'Queued · vehicle log',
+        state: 'Queued',
+      });
+    }
+
+    if (litres !== null) {
+      entries.push({
+        ref: `FUEL-${VEHICLE.reg}-${s.odoIn || '—'}`,
+        /* ⚠⚠ This row is the argument. TM-5 shows fleet efficiency at 6.59 km/l
+           and the console's own code says TVSH has no reliable per-vehicle split.
+           Litres against a registration and an odometer reading is what makes
+           one. ⚠ It claims a fill, never a burn rate. */
+        detail:
+          `${litres} L drawn at ${s.odoIn ? fmtKm(Number(s.odoIn)) + ' km' : 'an unrecorded reading'}` +
+          (s.fuelCost ? ` · ${s.fuelCost} on the fuel card, typed by you` : ' · card') +
+          '. One fill is not an efficiency figure — this reading and the next make the pair.',
+        dest: 'Queued · fleet cost, per-vehicle',
+        state: 'Queued',
+      });
+    }
+
+    set((prev) => ({ signedOff: true, trail: [...entries, ...prev.trail] }));
+  };
 
   return (
     <div style={{ padding: '14px 18px 26px' }}>
@@ -54,9 +105,6 @@ export default function Debrief() {
 
       <div style={{ marginTop: 16 }}>
         <SectionHead>Deposit the cash at</SectionHead>
-      </div>
-      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
-        Distances by road from {lastStop.area}, your last stop.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
@@ -108,14 +156,69 @@ export default function Debrief() {
 
       <Note style={{ marginTop: 12 }}>{depositNote(s.deposit)}</Note>
 
+      {/* ── Vehicle back at the depot ─────────────────────────────────────── */}
       <Card style={{ marginTop: 16, padding: 12 }}>
-        <SectionHead>Vehicle back at {TRIP.depot.code}</SectionHead>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10, fontSize: 12 }}>
-          <Fact label="Odometer" value={DEBRIEF.odometer} />
-          <Fact label="Fuel drawn" value={DEBRIEF.fuelDrawn} />
-          <Fact label="Seals returned" value={DEBRIEF.sealsReturned} />
-          <Fact label="Variance" value={s.signedOff ? 'None · counted' : 'Count at the safe'} />
+        <SectionHead>Vehicle back at {TRIP.depot.code} · {VEHICLE.reg}</SectionHead>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <Capture
+            label="Odometer in · km"
+            value={s.odoIn}
+            placeholder={String(VEHICLE.expectedClosing)}
+            onChange={(v) => set({ odoIn: v.replace(/[^\d]/g, '') })}
+          />
+          <Capture
+            label="Fuel drawn · L"
+            value={s.litres}
+            placeholder={VEHICLE.expectedLitres}
+            onChange={(v) => set({ litres: v.replace(/[^\d.]/g, '') })}
+          />
+          <Capture
+            label="Fuel card · optional"
+            value={s.fuelCost}
+            placeholder="not entered"
+            onChange={(v) => set({ fuelCost: v })}
+          />
+          <div>
+            <Lbl>Distance this run</Lbl>
+            {/* ⚠ Two typed readings, subtracted. Nothing else. If either is
+                missing the screen says which, and does not reach for the routed
+                estimate — that measures the plan, not the wheels. */}
+            <div style={{ font: '600 15px Archivo, system-ui', marginTop: 2 }}>
+              {distance !== null ? `${fmtKm(distance)} km` : '—'}
+            </div>
+            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>
+              {distance !== null
+                ? 'by odometer, typed by you'
+                : s.odoOut
+                  ? 'needs the closing reading'
+                  : 'no opening reading was taken'}
+            </div>
+          </div>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+          <div>
+            <Lbl>Seals returned</Lbl>
+            <div style={{ font: '600 15px Archivo, system-ui', marginTop: 2 }}>{DEBRIEF.sealsReturned}</div>
+          </div>
+          <div>
+            <Lbl>Cash variance</Lbl>
+            <div style={{ font: '600 15px Archivo, system-ui', marginTop: 2 }}>
+              {s.signedOff ? 'None · counted' : 'Count at the safe'}
+            </div>
+          </div>
+        </div>
+
+        {/* ⚠⚠ The sentence that keeps this feature honest, and the one that makes
+            it worth having. Never divide one fill by one run's distance. */}
+        {litres !== null && (
+          <Note style={{ marginTop: 12, fontSize: 11 }}>
+            One fill is not an efficiency figure — this reading and the next one make the pair. The
+            fleet runs at {VEHICLE.standardKmPerL} km/l as a standard; there is no per-vehicle figure
+            today, and this is the capture that makes one.
+          </Note>
+        )}
       </Card>
 
       <Btn
@@ -123,27 +226,7 @@ export default function Debrief() {
         height={56}
         fontSize={15}
         style={{ width: '100%', marginTop: 16 }}
-        onClick={() => {
-          if (s.signedOff) return;
-          const branch = rows.find((b) => b.code === s.deposit)!;
-          set((prev) => ({
-            signedOff: true,
-            trail: [
-              {
-                /* ⚠ The deposit reference carries the branch it went to, so the
-                   money can be found later by where it actually landed. */
-                ref: `DEP-${s.deposit}-${TRIP.date}-0014`,
-                detail:
-                  `${usdHeld} handed to the safe at ${branch.label.split(' · ')[1]}, ` +
-                  `${s.deposit === 'VE' ? 'which also raised the invoice' : 'not the branch that raised the invoice'}. ` +
-                  `Signed off ${DEBRIEF.signedOffAt} by ${TRIP.driver.name}. Reconciliation follows the money.`,
-                dest: 'Queued · deposit register',
-                state: 'Queued' as const,
-              },
-              ...prev.trail,
-            ],
-          }));
-        }}
+        onClick={signOff}
       >
         {s.signedOff
           ? `Signed off ${DEBRIEF.signedOffAt} · handed to the safe`
@@ -152,7 +235,7 @@ export default function Debrief() {
 
       {s.signedOff && (
         <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
-          Reference {`DEP-${s.deposit}-${TRIP.date}-0014`} · still on this device until depot wifi.
+          {`DEP-${s.deposit}-${TRIP.date}-0014`} · still on this device until depot wifi.
         </div>
       )}
 
@@ -160,6 +243,43 @@ export default function Debrief() {
         Back to the run
       </Btn>
     </div>
+  );
+}
+
+function Lbl({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ opacity: 0.55, fontSize: 9, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+      {children}
+    </div>
+  );
+}
+
+/** A typed vehicle reading. ⚠ Every one of these is labelled as typed wherever it
+ *  is printed downstream — the app makes the same distinction for a serial
+ *  (scanned or typed) and for an arrival (geofence or button). */
+function Capture({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: 'block' }}>
+      <Lbl>{label}</Lbl>
+      <input
+        className="input"
+        inputMode="numeric"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ minHeight: 44, borderRadius: 0, marginTop: 2, font: '600 15px Archivo, system-ui' }}
+      />
+    </label>
   );
 }
 
@@ -176,16 +296,7 @@ function Stat({
 }) {
   return (
     <div style={{ background: BG, padding: 12 }}>
-      <div
-        style={{
-          font: '600 9px Archivo, system-ui',
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-          opacity: 0.55,
-        }}
-      >
-        {label}
-      </div>
+      <Lbl>{label}</Lbl>
       <div style={{ font: `800 ${size}px Archivo, system-ui`, marginTop: 4 }}>{value}</div>
       {sub && <div style={{ font: '600 11px Archivo, system-ui', opacity: 0.7 }}>{sub}</div>}
     </div>

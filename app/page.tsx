@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TRIP } from '@/lib/run';
+import { TRIP, VEHICLE, fmtKm } from '@/lib/run';
 import { useRun } from '@/lib/state';
 import { Btn, DIV, Fact } from '@/components/ui';
 
@@ -21,7 +21,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '←'];
 
 export default function SignIn() {
   const router = useRouter();
-  const { set } = useRun();
+  const { s, set } = useRun();
   const [digits, setDigits] = useState('');
 
   const press = (k: string) =>
@@ -33,7 +33,7 @@ export default function SignIn() {
         minHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
-        padding: '34px 26px 26px',
+        padding: '26px 26px 22px',
         boxSizing: 'border-box',
       }}
     >
@@ -47,25 +47,58 @@ export default function SignIn() {
       >
         Vantage
       </div>
-      <div style={{ font: '800 46px/.96 Archivo, system-ui', letterSpacing: '-.03em', marginTop: 10 }}>
+      <div style={{ font: '800 42px/.96 Archivo, system-ui', letterSpacing: '-.03em', marginTop: 8 }}>
         Driver
       </div>
-      <div style={{ height: 2, background: DIV, margin: '20px 0' }} />
+      <div style={{ height: 2, background: DIV, margin: '12px 0' }} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 10px', fontSize: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 10px', fontSize: 12 }}>
         <Fact label="Terminal" value={`${TRIP.terminal.class} · ${TRIP.terminal.terminalNo}`} size={15} />
         <Fact label="Depot" value={TRIP.depot.short} size={15} />
         <Fact label="Build" value={TRIP.build} size={15} />
         <Fact label="Last sync" value={`${TRIP.downloadedAt} · depot wifi`} size={15} />
       </div>
 
-      <div style={{ height: 2, background: DIV, margin: '20px 0' }} />
+      <div style={{ height: 2, background: DIV, margin: '12px 0' }} />
+
+      {/* ⚠ Odometer out. Typed, like everything else about this vehicle that the
+          app claims — a reading nobody entered is a reading nobody can be asked
+          about. Ungated on purpose: a driver who cannot read the dial in the dark
+          must still be able to start his run, and the debrief says plainly that
+          it has no distance rather than inventing one. */}
+      <label style={{ display: 'block' }}>
+        <span
+          style={{
+            display: 'block',
+            font: '600 10px Archivo, system-ui',
+            letterSpacing: '.1em',
+            textTransform: 'uppercase',
+            opacity: 0.55,
+            marginBottom: 4,
+          }}
+        >
+          Odometer out · km
+        </span>
+        <input
+          className="input"
+          inputMode="numeric"
+          value={s.odoOut}
+          placeholder={String(VEHICLE.lastOdometer)}
+          onChange={(e) => set({ odoOut: e.target.value.replace(/[^\d]/g, '') })}
+          style={{ minHeight: 44, borderRadius: 0, font: '600 15px Archivo, system-ui' }}
+        />
+      </label>
+      <div style={{ fontSize: 11, opacity: 0.6, marginTop: 5 }}>
+        Last on {VEHICLE.reg}: {fmtKm(VEHICLE.lastOdometer)} km · came down with the run
+      </div>
+
+      <div style={{ height: 2, background: DIV, margin: '12px 0' }} />
       <div className="pretty" style={{ fontSize: 13, opacity: 0.7, lineHeight: 1.45 }}>
         Enter your staff PIN. This run was downloaded on the depot wifi at {TRIP.downloadedAt} and works
         with no signal all day.
       </div>
 
-      <div style={{ display: 'flex', gap: 8, margin: '18px 0 6px' }}>
+      <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px' }}>
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}

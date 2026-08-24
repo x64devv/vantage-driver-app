@@ -3,7 +3,7 @@
 **Repo:** `XPOS/vantage-driver-app/`
 **What it is:** the demo build of the TVSH driver phone app, from the Claude Design handoff.
 **Deadline:** presentation **Wednesday 26 August 2026**, department heads and directors.
-**Last updated:** 21 August 2026 — *D1–D10 built and driven in a real browser (87 assertions).
+**Last updated:** 21 August 2026 — *D1–D12 built and driven in a real browser (115 assertions).
 Deployed to Vercel. D11, the projector pass, is not done.*
 
 ---
@@ -52,8 +52,59 @@ outbox. Seeded run only. `README.md` opens with that warning.
 | `/stop/[id]/closed` | Recorded | What this stop wrote, and where it went |
 | `/debrief` | Debrief | Counts, cash, deposit branch, sign-off |
 
-Plus the demo framing on every route: left rail 360px, the phone (413×872 bezel, 393×852 screen),
-right rail 330px with the live record trail. **`?bare=1` drops both rails** for the projector.
+Plus the demo framing on every route: a 320px rail — title and screen jumps, nothing else — and the
+phone (413×872 bezel, 393×852 screen). See §3a for what used to be there and where it went.
+
+---
+
+## 3a. ⚠⚠ Slimmed for the executive audience — 21 August
+
+Internal feedback: the demo read as **too busy for the room**. Wyne's instruction, and what it cost.
+
+**Off the rail.** The five assumptions (he says them out loud instead), the stop-detail layout
+switcher, and the navigation switcher.
+
+**Off the page.** The live record trail rail.
+
+⚠ **Nothing was deleted — only taken off the screen.** All of it is still reachable by URL, so the
+design review after the 26th does not have to rebuild it:
+
+| | |
+|---|---|
+| `?trail=1` | the live record trail rail |
+| `?layout=checklist \| cards \| swipe` | the stop-detail layout |
+| `?nav=map \| list` | the route arrangement |
+| `?bare=1` | drop the rail entirely — the projector setting |
+
+⚠⚠ **What removing the trail rail costs, said plainly.** It was the demo's most visible argument —
+that no action is a claim without a record behind it. It is **not gone from the product**: the
+Recorded screen still shows what each stop wrote and where it went, and the queue chip in the app bar
+still counts what is waiting. But the room now only sees it when the driver closes a stop. **If beat
+13 is to land, somebody has to be pointing at the Recorded screen while it is up** — or run the
+rehearsal with `?trail=1`.
+
+⚠ **The switchers leaving forced a default the demo was deliberately not picking.** Wyne's call,
+21 Aug: **checklist + map first**. The other two layouts and the list arrangement are unchanged and
+still shipped; they simply have no control on screen.
+
+### What was cut inside the app, and what was kept
+
+The instruction was *"cut the explaining, keep the claims"* — because some of what reads as clutter
+is COPY-RULES spec, and cutting it is how a demo quietly stops being true.
+
+| Cut | Kept, and why |
+|---|---|
+| The hint under each of the four checks | The checks themselves. The hint survives in the **swipe** layout, where one check owns the screen |
+| *"Scanned onto load LD-000377 by you. Not typed — a different grade of fact."* | **`Scanned onto LD-000377 / 4`** — the provenance word is the claim; the sentence was the explaining |
+| The duplicated *"Not serialised"* footnote | One strip reading `Not serialised — no serial gate applies`. It said the same thing twice |
+| The proof intro, *"Three pieces of evidence, then the signature…"* | The signature hint, which still says the line set locks when it is signed |
+| The two-drains note on proof (TRP-003 §3.2) | **`held for wifi`** on every photo slot and in the trail rows. ⚠ Worth saying out loud if anyone asks why the photographs lag |
+| Half the part-payment hint | *"This device does not work out what is left."* That half is COPY-RULES |
+| The deposit-distance caption | The distance on each row, which already says *"from your last stop"* |
+
+⚠⚠ **Untouched, and not negotiable:** every money sentence, both warning panels (*"I cannot see this
+account from here"* and *"a 'no' becomes an exception with your name on it"*), every provenance line
+(`By geofence`, `Scanned`, `Queued · …`, `Held for wifi`), and the Recorded screen's trail rows.
 
 ---
 
@@ -138,6 +189,41 @@ holds no branch coordinates, so there is no figure anybody could stand behind. I
 true of it instead — that it raised the invoice and is where the debrief happens. **Never invent a
 coordinate to fill a table cell.** (`AV`'s point is Avondale Shopping Centre from OSM Nominatim,
 checked 20 Aug; `BR`'s is the run's own stop-6 marker, Shop 12 Sam Levy Village.)
+
+---
+
+## 5a. ⚠⚠ Fuel and mileage — added 21 August
+
+Not in the handoff, which carried the odometer and the litres as static text on the debrief. The
+driver now types them, because **a reading nobody entered is a reading nobody can be asked about**.
+
+| Where | What |
+|---|---|
+| Sign in | **Odometer out**, one field, with the last reading on `AGE5599` shown as context. ⚠ Ungated — a driver who cannot read the dial in the dark must still be able to start his run |
+| Debrief · vehicle card | **Odometer in**, **fuel drawn (L)**, and an optional **fuel card** amount. Distance is the two readings subtracted, labelled *by odometer, typed by you* |
+| Sign-off | Writes `ODO-AGE5599-184226` → *Queued · vehicle log* and `FUEL-AGE5599-184226` → *Queued · fleet cost, per-vehicle*. ⚠ Each row is written only if there is a reading behind it |
+
+⚠⚠ **Why it earns its place, and it is the same shape as the HTB serial line.** The console's TM-5
+shows fleet fuel efficiency at **6.59 km/l against a 6.64 standard**, and its own `lib/data.ts` says
+in as many words that TVSH's fuel data *"supports a fleet-wide figure but not a reliable per-vehicle
+split"*. Its per-vehicle variance table is invented and says so. **Litres captured against a
+registration and an odometer reading at every fill is exactly what makes that table real.**
+
+⚠⚠ **THE HONEST LIMIT, and the screen says it out loud: one fill is not an efficiency figure.**
+Litres drawn is a tank fill, not fuel burned. 62.4 L over this run's 106 km would print **1.7 km/l**
+against a 6.64 standard and read as a catastrophe that did not happen. Efficiency comes from two
+consecutive fills. **The app captures the pair and refuses to divide half of it** — there is an
+assertion in `scripts/verify.mjs` that no km/l is printed for a single run.
+
+⚠ **The price paid is optional and starts empty.** A pump price is the kind of figure a finance
+director in the room would check. Whatever is typed is labelled as typed, and nothing is derived
+from it.
+
+⚠ **Invented, and marked in `lib/run.ts`:** the previous reading, 184 120 km. The closing 184 226 km
+and the 62.4 L are the handoff's own, equally invented. 106 km is plausible against what OSRM did
+measure — the routed part of this run is 66 km (8.7 already driven plus 57.0 remaining); the rest is
+the two depot legs, which are not routed because nothing in the estate holds a coordinate for VE
+Village Walk.
 
 ---
 
@@ -228,6 +314,7 @@ ellipsing it would cut the distance or the minutes — the figures the row exist
 | D9 | `/debrief` | ✅ real distances; BR is the deposit and the note says why |
 | D10 | Left rail, right rail, `?bare=1`, `localStorage`, Reset run | ✅ a hard reload keeps the run |
 | D11 | **Demo pass on the real projector, with the console** | ☐ **not done, and it is not optional** |
+| D12 | **Slim for the room (§3a) + fuel and mileage (§5a)** | ✅ 21 Aug, 115 assertions |
 
 **Added, not in the original plan:** a numeric keypad on the cash screen for a part payment. The
 handoff hardcoded `USD 600.00 of USD 1 150.00` — a figure from nowhere, printed on a receipt. §7.8 of
@@ -317,7 +404,7 @@ default caret was removed from `next` — because a demo build should not float.
   `next@15.5.4` and, after the security patch, `next@15.5.23`.
 - `node scripts/build-route-cache.mjs` — 7 of 7 routes fetched from OSRM, plus a 24-order brute
   force to check the suggestion (§5).
-- `node serve.mjs`, then `node scripts/verify.mjs` — **87 assertions, 87 pass, 0 fail**, covering:
+- `node serve.mjs`, then `node scripts/verify.mjs` — **115 assertions, 115 pass, 0 fail**, covering:
   every route renders · the whole data-truth pass · the real saving and no placeholder figures ·
   accept **and** reject both writing a trail row · three consignment lines with two unserialised ·
   both stop gates and the label naming what is missing · a single "no" raising the exception panel ·
@@ -325,8 +412,9 @@ default caret was removed from `next` — because a demo build should not float.
   sentence in COPY-RULES, asserted inside the phone only · the part-payment keypad and the absence of
   any invented figure · the four trail rows in order with their destinations · the deposit rows and
   their real distances · `?bare=1` · a hard reload · Reset run · both variant switches, `navMode`
-  asserted by geometry rather than by wording · and a **cold load of `/stop/N/closed/`**, which must
-  not claim a stop closed that was never worked.
+  asserted by geometry rather than by wording · a **cold load of `/stop/N/closed/`**, which must not
+  claim a stop closed that was never worked · every cut and every survivor in §3a · and the fuel and
+  mileage capture, including **that no km/l is printed from a single fill**.
 - Screenshots of all nine screens and all three check layouts, **looked at** — which is how both
   bugs in §10 were found: the marker stacking, and the cold Recorded screen.
 - **Deployed to Vercel** from `github.com/x64devv/vantage-driver-app` — build green, 47 routes

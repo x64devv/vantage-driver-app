@@ -97,3 +97,10 @@ a:hover {
   background: var(--color-accent) !important;
   color: var(--color-bg) !important;
 }
+
+/* ⚠ A placeholder inherits the input's 600-weight 15px face and reads as a
+   value the driver entered. It is not one. Lighter and dimmer, always. */
+.input::placeholder {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
+}

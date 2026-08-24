@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CAPTURED, PHOTO_SLOTS, stopById } from '@/lib/run';
 import { canConfirmProof, useRun } from '@/lib/state';
-import { ACC, BG, Btn, Card, DIV, INK, MUT, Note, SURF, SectionHead } from '@/components/ui';
+import { ACC, BG, Btn, Card, DIV, INK, MUT, SURF, SectionHead } from '@/components/ui';
 import Signature from '@/components/Signature';
 
 export default function ProofView({ id }: { id: number }) {
@@ -35,11 +35,11 @@ export default function ProofView({ id }: { id: number }) {
 
   return (
     <div style={{ padding: '14px 18px 26px' }}>
-      <div className="pretty" style={{ fontSize: 12, lineHeight: 1.45, opacity: 0.75 }}>
-        Three pieces of evidence, then the signature. The line set locks the moment it is signed.
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+      {/* ⚠ The intro line ("Three pieces of evidence, then the signature…") went
+          on 21 Aug. The screen already shows two photo slots above a signature,
+          and the signature hint still says the line set locks when it is signed —
+          the claim survives where it is acted on. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {PHOTO_SLOTS.map((p) => {
           const taken = s.photos[p.key];
           return (
@@ -151,11 +151,11 @@ export default function ProofView({ id }: { id: number }) {
         </div>
       </Card>
 
-      {/* TRP-003 §3.2: two outbox drains, and the filter belongs in the SQL. */}
-      <Note style={{ marginTop: 14, fontSize: 11 }}>
-        Photographs go out on wifi only, so a signature never queues behind megabytes. The outcome and
-        the signature go the moment there is signal.
-      </Note>
+      {/* ⚠ The two-drains note (TRP-003 §3.2 — photographs go out on wifi only so
+          a signature never queues behind megabytes) went on 21 Aug. It explained
+          the mechanism; the claim it supports is still on every photo slot,
+          which reads "held for wifi", and in the trail rows. Worth saying out
+          loud if anyone asks why the photographs lag. */}
 
       <Btn
         kind="primary"

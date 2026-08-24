@@ -262,13 +262,55 @@ export const DEPOSIT_BRANCHES = [
 export type DepositCode = 'BR' | 'VE' | 'AV';
 
 export const DEBRIEF = {
-  odometer: '184 226 km',
-  fuelDrawn: '62.4 L · card',
   sealsReturned: 'Z-114882/83',
   signedOffAt: '18:14',
   depositRef: 'DEP-BR-2026-08-20-0014',
   cashZwg: 'ZWG 4 200.00',
 };
+
+/* ── Fuel and mileage ─────────────────────────────────────────────────────
+   Added 21 Aug on Wyne's instruction. Not in the handoff, which carried the
+   odometer and the litres as static text on the debrief; here the driver types
+   them, because a reading nobody entered is a reading nobody can be asked about.
+
+   ⚠⚠ WHY THIS EARNS ITS PLACE, and it is the same shape of argument as the HTB
+   serial line. The console's TM-5 shows fleet fuel efficiency at 6.59 km/l
+   against a 6.64 standard, and `lib/data.ts` says in as many words that TVSH's
+   fuel data "supports a fleet-wide figure but not a reliable per-vehicle split".
+   An odometer reading and a litres figure captured against a registration at
+   every fill is exactly what produces that split. The per-vehicle variance table
+   on TM-5 is currently invented; this is the capture that would make it real.
+
+   ⚠⚠ THE HONEST LIMIT, and the app says it on screen: ONE FILL IS NOT AN
+   EFFICIENCY FIGURE. Litres drawn is a tank fill, not fuel burned — 62.4 L does
+   not correspond to this run's 106 km, and dividing one by the other would print
+   1.7 km/l against a 6.64 standard and look like a catastrophe. Efficiency comes
+   from two consecutive fills. The app captures the pair and refuses to compute
+   the ratio from half of it.
+
+   ⚠ Invented, and marked as such: the previous reading (184 120 km). The closing
+   reading 184 226 km and the 62.4 L are the handoff's own figures, equally
+   invented. 106 km is a plausible day against what OSRM did measure — the routed
+   part of this run is 66 km (8.7 km already driven plus 57.0 km remaining), and
+   the rest is the two depot legs, which are not routed because nothing in the
+   estate holds a coordinate for VE Village Walk.
+
+   ⚠ NOT captured: the price paid. A pump price is the kind of figure a finance
+   director in the room would check, and this estate does not print figures it
+   cannot stand behind. The cost field is optional and starts empty; whatever is
+   typed is labelled as typed, and nothing is derived from it. */
+export const VEHICLE = {
+  reg: 'AGE5599',
+  /** The last reading the vehicle log holds, down with the run at 06:41. */
+  lastOdometer: 184120,
+  /** ⚠ Where the demo is expected to land, not a default: the driver types it. */
+  expectedClosing: 184226,
+  expectedLitres: '62.4',
+  /** The console's TM-5 standard. Shown for context; never divided into one fill. */
+  standardKmPerL: '6.64',
+};
+
+export const fmtKm = (n: number) => n.toLocaleString('en-GB').replace(/,/g, ' ');
 
 /* ── The receipt series ───────────────────────────────────────────────────
    PAY-<store>-<terminal>-<sequence6>, minted on the device with no server round
