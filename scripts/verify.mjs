@@ -429,6 +429,41 @@ await page.waitForTimeout(500);
 const odoAfterReload = await page.locator('[data-phone="screen"] input').first().inputValue();
 ok('a hard reload keeps the typed readings', odoAfterReload === '184226', `odometer in reads "${odoAfterReload}"`);
 
+/* ── 9-. ⚠⚠ A stop reached by URL records against THAT stop ──────────────
+   Found on the 25 Nov cross-app walk: after stop 4 was delivered, opening
+   /stop/5/failed straight from a link and recording "Nobody at the address"
+   wrote the failure onto stop 4 — the debrief read 3 of 8 delivered and the
+   Recorded screen said stop 5 was not closed. */
+await go('/run/');
+await click('Reset run');
+await go('/stop/4/');
+{
+  const yes = page.getByRole('button', { name: 'Yes', exact: true });
+  for (let i = 0; i < 4; i++) await yes.nth(i).click();
+  await click('Passed');
+  await click('Take proof of delivery');
+  await page.getByText('The goods, in place').click();
+  await page.getByText("Receiver's ID").click();
+  const cv = await page.locator('canvas').first().boundingBox();
+  await page.mouse.move(cv.x + cv.width * 0.25, cv.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(cv.x + cv.width * 0.75, cv.y + 110, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  await click('Confirm delivery, then take the money');
+  for (const k of ['1', '1', '5', '0']) await page.getByRole('button', { name: k, exact: true }).first().click();
+  await click('Complete stop 4');
+}
+await go('/stop/5/failed/');
+await click('Nobody at the address');
+await click('Record the failed stop');
+await page.waitForTimeout(300);
+ok('stop by URL · the Recorded screen closes stop 5, not another', has(await phone(), 'R. Mabhena') && !has(await phone(), 'is not closed'));
+await go('/debrief/');
+ok('stop by URL · stop 4 is still delivered (4 of 8)', has(await phone(), '4 of 8'));
+await go('/run/');
+await click('Reset run');
+
 /* ── 9a. A failed stop: its goods move to coming back, and it still balances ──
    ⚠ Walked the way a driver walks it — the stop, then "Cannot deliver", a
    reason, recorded — not by writing state. Stop 5 is 8 cases of washing powder. */

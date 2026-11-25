@@ -36,6 +36,8 @@ follow, is **`../GAIN-RESEED.md`** — change an identity there and in all three
   receipt scan, and adding lines to cases would mix two grades of a fact. Sign-off writes
   `VANREC-AHF5121-LD-000377` → *Queued · van reconciliation*. `verify.mjs`: **139 of 139**.
 
+- **Cross-app walk, 25 Nov:** findings and open decisions are in `../GAIN-RESEED.md`, last section.
+
 ---
 
 ## 1. What this is, and what it is not

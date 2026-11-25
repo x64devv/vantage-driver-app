@@ -100,7 +100,7 @@ export default function FailedView({ id }: { id: number }) {
         dim={!picked}
         style={{ width: '100%', marginTop: 16 }}
         onClick={() => {
-          failStop();
+          failStop(stop.id);
           router.push(`/stop/${stop.id}/closed`);
         }}
       >

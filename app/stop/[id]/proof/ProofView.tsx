@@ -167,7 +167,7 @@ export default function ProofView({ id }: { id: number }) {
           if (stop.cash) {
             router.push(`/stop/${stop.id}/cash`);
           } else {
-            completeStop();
+            completeStop(stop.id);
             router.push(`/stop/${stop.id}/closed`);
           }
         }}
