@@ -27,6 +27,14 @@ follow, is **`../GAIN-RESEED.md`** — change an identity there and in all three
   it"* on a stop of cases — same gate. `verify.mjs`: **127 of 127** on Windows, 25 Nov.
 - ⚠ Stop 5's cash reason is now *"Account balance promised on delivery"* (was HTB arrears) — a money
   sentence changed at a keyboard; **Wyne to confirm.**
+- **Phase 2 (2.6), 25 Nov: van stock reconciliation on `/debrief`** (`lib/vanrec.ts`). Loaded /
+  delivered / coming back / not worked, by line, **derived from `run.ts` and the outcomes in
+  `RunState.done` — nothing typed, nothing invented.** A failed stop (a cash-0 refusal included) moves
+  its units to *coming back*, which names `VE Willowvale goods-in` and seals `Z-114882 / Z-114883`.
+  The balance line is a sum done on screen and says *does not balance* if it ever fails. ⚠ The stop-6
+  transfer is shown in **lines**, outside the unit total — the branch counts its units on its own
+  receipt scan, and adding lines to cases would mix two grades of a fact. Sign-off writes
+  `VANREC-AHF5121-LD-000377` → *Queued · van reconciliation*. `verify.mjs`: **139 of 139**.
 
 ---
 

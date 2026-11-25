@@ -280,6 +280,25 @@ ok('BR Borrowdale is offered', t.includes('BR · Borrowdale'));
 ok('VE Willowvale carries no invented distance', /Raised the invoice · where you debrief/.test(t));
 ok('distances are real road figures', /14\.6 km|11\.5 km|19\.1 km|19\.6 km/.test(t), t.split('\n').filter((l) => l.includes(' km')).join(' | '));
 ok('the reconciliation note survives', t.includes('reconciliation is a query and not a spreadsheet'));
+
+/* ── 8a. Van stock reconciliation (Gain Phase 2, 2.6) ─────────────────
+   ⚠ Stops 1–3 seeded delivered and stop 4 just completed: 12 + 15 + 20 + 31
+   = 78 delivered. Stops 5, 7, 8 (8 + 25 + 10 = 43) not worked. 121 loaded.
+   The transfer is lines, not units, and is not in the total. */
+const vanFig = async (id) => (await page.getByTestId(id).innerText()).trim();
+ok('van stock · loaded is every unit on LD-000377', (await vanFig('van-loaded')) === '121', await vanFig('van-loaded'));
+ok('van stock · delivered counts the seeded stops and stop 4', (await vanFig('van-delivered')) === '78', await vanFig('van-delivered'));
+ok('van stock · nothing coming back yet', (await vanFig('van-back')) === '0');
+ok('van stock · not worked is what is left', (await vanFig('van-onvan')) === '43');
+ok(
+  'van stock · the balance line states itself',
+  has(await vanFig('van-balance'), '121 loaded = 78 delivered + 0 coming back + 43 not worked — balances'),
+  await vanFig('van-balance'),
+);
+ok(
+  'van stock · the transfer is counted in lines, by the branch, outside the total',
+  has(await vanFig('van-transfer'), '4 lines') && has(await vanFig('van-transfer'), 'not in the total'),
+);
 await click('Sign off the run');
 t = await text();
 ok('sign-off reference is dated 20 August', t.includes('DEP-BR-2026-08-20-0014'));
@@ -401,12 +420,33 @@ ok('sign-off writes a FUEL row', has(t, 'FUEL-AHF5121-184226'));
 ok('the FUEL row goes to the per-vehicle fleet cost', has(t, 'fleet cost, per-vehicle'));
 ok('the FUEL row refuses to claim a burn rate', has(t, 'One fill is not an efficiency figure'));
 ok('the deposit row still lands at BR', has(t, 'DEP-BR-2026-08-20-0014'));
+ok('sign-off writes a van reconciliation row', has(t, 'VANREC-AHF5121-LD-000377') && has(t, 'Queued · van reconciliation'));
+ok('the VANREC row carries the balance', has(t, '121 loaded = 47 delivered + 0 coming back + 74 not worked — balances'));
 
 /* persistence across a hard reload */
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(500);
 const odoAfterReload = await page.locator('[data-phone="screen"] input').first().inputValue();
 ok('a hard reload keeps the typed readings', odoAfterReload === '184226', `odometer in reads "${odoAfterReload}"`);
+
+/* ── 9a. A failed stop: its goods move to coming back, and it still balances ──
+   ⚠ Walked the way a driver walks it — the stop, then "Cannot deliver", a
+   reason, recorded — not by writing state. Stop 5 is 8 cases of washing powder. */
+await go('/stop/5/');
+await go('/stop/5/failed/');
+await click('Nobody at the address');
+await click('Record the failed stop');
+await page.waitForTimeout(300);
+await go('/debrief/');
+ok('failed stop · its 8 units are coming back', (await vanFig('van-back')) === '8', await vanFig('van-back'));
+ok('failed stop · they left not-worked, not delivered', (await vanFig('van-onvan')) === '66' && (await vanFig('van-delivered')) === '47');
+ok(
+  'failed stop · it still balances',
+  has(await vanFig('van-balance'), '121 loaded = 47 delivered + 8 coming back + 66 not worked — balances'),
+  await vanFig('van-balance'),
+);
+ph = await phone();
+ok('failed stop · coming back names goods-in and the seals', has(ph, 'VE Willowvale goods-in') && has(ph, 'Z-114882 / Z-114883'));
 
 /* ── 10. Errors ─────────────────────────────────────────────────────── */
 const realConsoleErrors = consoleErrors.filter(
