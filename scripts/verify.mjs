@@ -13,7 +13,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW || 'playwright');
 
-const BASE = process.env.BASE || 'http://localhost:4173';
+const BASE = process.env.BASE || 'http://localhost:4175';
 const results = [];
 let failures = 0;
 
