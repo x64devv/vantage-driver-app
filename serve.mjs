@@ -1,6 +1,6 @@
 /* A zero-dependency static server for the exported driver app.
  *
- *   npm run build && node serve.mjs      →  http://localhost:4173/
+ *   npm run build && node serve.mjs      →  http://localhost:4175/
  *
  * ⚠ Why this exists: `output: 'export'` produces a static site, but Next writes
  * absolute asset paths (/_next/…), so opening out/index.html straight off the
@@ -11,10 +11,12 @@
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, join, normalize, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve('out');
-const PORT = Number(process.env.PORT || 4173);
+// Resolved from this file, not the shell's directory, so it starts from anywhere.
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), 'out');
+const PORT = Number(process.env.PORT || 4175);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',

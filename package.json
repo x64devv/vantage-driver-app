@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "node serve.mjs",
     "lint": "next lint",
-    "routes": "node scripts/build-route-cache.mjs"
+    "routes": "node scripts/build-route-cache.mjs",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "leaflet": "1.9.4",
@@ -22,6 +23,7 @@
     "@types/node": "22.10.2",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.0",
+    "playwright": "1.65.1",
     "typescript": "5.7.2"
   }
 }

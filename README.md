@@ -20,7 +20,7 @@ whole day and never claims something has happened when it has not.**
 ```bash
 npm install
 npm run build      # static export into out/
-npm start          # serve.mjs, zero dependencies → http://localhost:4173/
+npm start          # serve.mjs, zero dependencies → http://localhost:4175/
 ```
 
 ⚠ **`out/index.html` will not open from `file://`.** Next writes absolute `/_next/…` paths, so the

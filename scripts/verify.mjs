@@ -8,12 +8,25 @@
  */
 
 import { createRequire } from 'node:module';
-/* ⚠ Playwright is installed globally in this container, not as a dependency of
-   the app. The demo build does not need it; only this script does. */
+import { existsSync } from 'node:fs';
+/* ⚠ Playwright is a devDependency: the demo build does not need it, only this
+   script does. PW still overrides where it is loaded from. */
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW || 'playwright');
 
-const BASE = process.env.BASE || 'http://localhost:4173';
+const BASE = process.env.BASE || 'http://localhost:4175';
+/* ⚠ Which browser. CHROME wins; otherwise the first installed Chrome or Edge on
+   this machine (Windows, macOS, Linux); otherwise Playwright's own download, if
+   `npx playwright install chromium` has been run. Installing the `playwright`
+   package does not fetch a browser by itself. */
+const EXE = process.env.CHROME || [
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+].find((p) => existsSync(p));
 const results = [];
 let failures = 0;
 
@@ -23,7 +36,7 @@ const ok = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  — ${detail}` : ''}`);
 };
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(EXE ? { executablePath: EXE } : {});
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
 
 const pageErrors = [];
