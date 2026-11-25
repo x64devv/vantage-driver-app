@@ -8,6 +8,28 @@ Deployed to Vercel. D11, the projector pass, is not done.*
 
 ---
 
+## 0. ⚠⚠ Gain re-seed (25 Nov 2026) — branch `gain/reseed`
+
+Re-seeded to show Gain (URD 10.11 / 10.12), demo only. The shared identity map, which all three apps
+follow, is **`../GAIN-RESEED.md`** — change an identity there and in all three apps, never in one.
+
+- **Everything business-shaped is illustrative, not Gain's records:** branch names (codes kept),
+  registrations (`AHF5121 · GC103` on the run), goods (wholesale cases; the only serial on trip 05 is
+  stop 4's chest freezer), GC- SKUs, invoice 414414's reference and fiscal signature. A tag reading
+  *"Illustrative data — not Gain's records"* sits outside the device frame on every route.
+- **TVSH's real data is gone from this branch.** Do not reintroduce it.
+- **Unchanged:** the day, clocks, suburbs, coordinates, routes cache, trip/load/seal ids, receipt
+  `PAY-101-D204-000037`, `USD 1 150.00`, people's names, the block on `CN-MW-000121`, and the four
+  survivors.
+- Hire-to-buy is off trip 05 (it stays in the product; `CN-AV-000120` still carries a contract).
+- The sections below are the TVSH build's history; read their identities through the map above.
+- The functional test reads *"Switch it on"* on a stop with an appliance and *"Open one case and count
+  it"* on a stop of cases — same gate. `verify.mjs`: **127 of 127** on Windows, 25 Nov.
+- ⚠ Stop 5's cash reason is now *"Account balance promised on delivery"* (was HTB arrears) — a money
+  sentence changed at a keyboard; **Wyne to confirm.**
+
+---
+
 ## 1. What this is, and what it is not
 
 A **nine-screen Next.js phone app**, static export, all state client-side, no server. It is the

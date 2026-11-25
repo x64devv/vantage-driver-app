@@ -79,7 +79,7 @@ for (const r of ROUTES) {
 await go('/run/');
 let t = await text();
 ok('trip id is the console\'s', t.includes('TR-HRE-2026-08-20-05'));
-ok('vehicle is AGE5599 · TVS103', t.includes('AGE5599 · TVS103'));
+ok('vehicle is AHF5121 · GC103', t.includes('AHF5121 · GC103'));
 ok('no AFR 8615 anywhere', !t.includes('AFR 8615'));
 ok('zone is C, not B', t.includes('Zone C') && !t.includes('Zone B'));
 ok('kicker reads THURSDAY 20 AUGUST', t.toUpperCase().includes('THURSDAY 20 AUGUST'));
@@ -117,7 +117,8 @@ ok('accepted order changes km left to 42', /42 km left/.test(t), t.match(/·[^·
 /* ── 4. Stop 4: three lines, two unserialised ───────────────────────── */
 await go('/stop/4/');
 t = await text();
-ok('stop 4 carries three consignment lines', t.includes('QA85Q7FAAUXKE') && t.includes('TV Bracket Ellis') && t.includes('HT-S40R'));
+ok('stop 4 carries three consignment lines', t.includes('Chest freezer Defy 300L CF300') && t.includes('Cooking oil 2L × 6, case') && t.includes('Maize meal 10kg, bag'));
+ok('the appliance stop asks for it to be switched on', t.includes('Switch it on in front of the receiver'));
 ok('the TV is serialised and scanned', t.includes('#G-000004791204') && t.includes('Scanned onto LD-000377'));
 ok('the other two say no serial gate applies', (t.match(/Not serialised — no serial gate applies/g) || []).length === 2);
 ok('arrival names its provenance', t.includes('By geofence'));
@@ -276,7 +277,7 @@ t = await text();
 ok('no Highlands branch', !t.includes('Highlands'));
 ok('AV Avondale is offered', t.includes('AV · Avondale'));
 ok('BR Borrowdale is offered', t.includes('BR · Borrowdale'));
-ok('VE Village Walk carries no invented distance', /Raised the invoice · where you debrief/.test(t));
+ok('VE Willowvale carries no invented distance', /Raised the invoice · where you debrief/.test(t));
 ok('distances are real road figures', /14\.6 km|11\.5 km|19\.1 km|19\.6 km/.test(t), t.split('\n').filter((l) => l.includes(' km')).join(' | '));
 ok('the reconciliation note survives', t.includes('reconciliation is a query and not a spreadsheet'));
 await click('Sign off the run');
@@ -287,7 +288,8 @@ ok('sign-off says it is still on the device', t.includes('still on this device u
 /* ── 9. The framing, slimmed 21 Aug ─────────────────────────────────── */
 await go('/run/');
 t = await text();
-ok('the rail keeps its title', has(t, 'Vantage Driver') && has(t, 'TVSH Transport'));
+ok('the rail keeps its title', has(t, 'Vantage Driver') && has(t, 'Gain Logistics'));
+ok('the illustrative-data marker is on screen', has(t, "not Gain's records"));
 ok('the rail keeps the screen jumps', has(t, 'Jump to a screen') && has(t, 'Failed stop'));
 ok('the five assumptions are gone', !has(t, 'What this design assumes') && !has(t, 'mints its own receipt'));
 ok('the variant switchers are gone', !has(t, 'Stop-detail layout') && !has(t, 'One at a time'));
@@ -382,7 +384,7 @@ ok('distance is the two typed readings, subtracted', has(ph, '106 km'), ph.split
 ok('the distance names its provenance', has(ph, 'by odometer, typed by you'));
 ok('⚠⚠ NO km/l is printed from one fill', !/\d\s*km\/l\s*(this run|on this run)/i.test(ph) && !has(ph, '1.7 km/l'));
 ok('the screen says one fill is not an efficiency figure', has(ph, 'One fill is not an efficiency figure'));
-ok('it names the standard without dividing into it', has(ph, '6.64 km/l'));
+ok('it names the standard without dividing into it', has(ph, '6.30 km/l'));
 const costField = page.locator('[data-phone="screen"] input').nth(2);
 ok(
   'the fuel cost is optional and starts empty',
@@ -393,9 +395,9 @@ await click('Sign off the run');
 await page.waitForTimeout(400);
 await go('/debrief/?trail=1');
 t = await text();
-ok('sign-off writes an ODO row', has(t, 'ODO-AGE5599-184226'), t.split('\n').find((l) => l.includes('ODO-')) ?? '');
+ok('sign-off writes an ODO row', has(t, 'ODO-AHF5121-184226'), t.split('\n').find((l) => l.includes('ODO-')) ?? '');
 ok('the ODO row carries the distance and says it was typed', has(t, '106 km on this run') && has(t, 'typed by you'));
-ok('sign-off writes a FUEL row', has(t, 'FUEL-AGE5599-184226'));
+ok('sign-off writes a FUEL row', has(t, 'FUEL-AHF5121-184226'));
 ok('the FUEL row goes to the per-vehicle fleet cost', has(t, 'fleet cost, per-vehicle'));
 ok('the FUEL row refuses to claim a burn rate', has(t, 'One fill is not an efficiency figure'));
 ok('the deposit row still lands at BR', has(t, 'DEP-BR-2026-08-20-0014'));

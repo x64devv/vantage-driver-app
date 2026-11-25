@@ -261,6 +261,32 @@ function ShellInner({ children }: { children: ReactNode }) {
     </div>
   );
 
+  /* ⚠⚠ Gain re-seed, 25 Nov 2026. Every identity in this build is illustrative
+     (../GAIN-RESEED.md), and the room must be able to see that without anyone
+     saying it — so the tag sits outside the phone, on every route, in bare mode
+     too. It is deliberately NOT inside [data-phone="screen"]: it is a fact about
+     the demo, not something the driver's app would ever print. */
+  const illustrative = (
+    <div
+      data-illustrative="1"
+      style={{
+        position: 'fixed',
+        top: 12,
+        right: 16,
+        zIndex: 50,
+        padding: '6px 10px',
+        border: `2px solid ${ACC}`,
+        background: 'var(--color-bg, #fff)',
+        font: '700 11px/1 Archivo, system-ui',
+        letterSpacing: '.12em',
+        textTransform: 'uppercase',
+        color: ACC,
+      }}
+    >
+      Illustrative data — not Gain's records
+    </div>
+  );
+
   if (bare) {
     return (
       <div
@@ -274,6 +300,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         }}
       >
         {phone}
+        {illustrative}
       </div>
     );
   }
@@ -294,6 +321,7 @@ function ShellInner({ children }: { children: ReactNode }) {
       <Rail />
       {phone}
       {showTrail && <TrailRail />}
+      {illustrative}
     </div>
   );
 
@@ -321,7 +349,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               color: ACC,
             }}
           >
-            TVSH Transport · Phase 0 · Driver app
+            Gain Logistics · Demo · Driver app
           </div>
           <h1 style={{ font: '800 40px/1.02 Archivo, system-ui', letterSpacing: '-.02em', margin: 0 }}>
             Vantage Driver

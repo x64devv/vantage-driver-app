@@ -75,8 +75,8 @@ export default function Debrief() {
     if (litres !== null) {
       entries.push({
         ref: `FUEL-${VEHICLE.reg}-${s.odoIn || '—'}`,
-        /* ⚠⚠ This row is the argument. TM-5 shows fleet efficiency at 6.59 km/l
-           and the console's own code says TVSH has no reliable per-vehicle split.
+        /* ⚠⚠ This row is the argument. TM-5 shows a fleet-wide efficiency figure
+           (6.12 km/l, illustrative) and no reliable per-vehicle split.
            Litres against a registration and an odometer reading is what makes
            one. ⚠ It claims a fill, never a burn rate. */
         detail:
