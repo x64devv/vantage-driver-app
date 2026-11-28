@@ -52,7 +52,7 @@ export default function CashView({ id }: { id: number }) {
           fontSize={15}
           style={{ width: '100%', marginTop: 16 }}
           onClick={() => {
-            completeStop();
+            completeStop(stop.id);
             router.push(`/stop/${stop.id}/closed`);
           }}
         >
@@ -214,7 +214,7 @@ export default function CashView({ id }: { id: number }) {
             return;
           }
           if (!ready) return;
-          completeStop();
+          completeStop(stop.id);
           router.push(`/stop/${stop.id}/closed`);
         }}
       >

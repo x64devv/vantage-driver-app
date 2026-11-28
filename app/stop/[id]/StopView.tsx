@@ -183,7 +183,12 @@ export default function StopView({ id }: { id: number }) {
       <Card style={{ marginTop: 18 }}>
         <SectionHead>Functional test — before any signature</SectionHead>
         <div style={{ font: '600 15px/1.25 Archivo, system-ui', marginTop: 8 }}>
-          Switch it on in front of the receiver
+          {/* ⚠ Gain re-seed: a wholesale run is mostly cases. An appliance is
+              switched on; a stop of cases has one opened and counted. Same
+              test, same gate, said in the words that fit the goods. */}
+          {stop.lines.some((l) => typeof l.serial === 'string' && l.serial.startsWith('#'))
+            ? 'Switch it on in front of the receiver'
+            : 'Open one case and count it in front of the receiver'}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <Choice

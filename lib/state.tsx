@@ -112,8 +112,10 @@ type Ctx = {
   s: RunState;
   set: (patch: Partial<RunState> | ((s: RunState) => Partial<RunState>)) => void;
   reset: () => void;
-  completeStop: () => void;
-  failStop: () => void;
+  /** ⚠ Pass the stop on screen. Without it these fall back to the last stop
+   *  opened, which is how a stop reached by URL used to overwrite another. */
+  completeStop: (stopId?: number) => void;
+  failStop: (stopId?: number) => void;
   nextStop: () => number | null;
   ready: boolean;
 };
@@ -175,8 +177,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
      out loud rather than going quiet: the field exists, it is populated when
      there is a contract, and this sale has none. Faking stop 4 as hire-to-buy to
      make the row appear would contradict the console's record and the invoice. */
-  const completeStop = () => {
-    const stop = stopById(s.stopId);
+  const completeStop = (stopId?: number) => {
+    const stop = stopById(stopId ?? s.stopId);
     const serialLine = stop.lines.find((l) => l.serial?.startsWith('#G'));
     const photoCount = 2 + 1; // two photographs and the signature bitmap
 
@@ -238,8 +240,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
   /* ⚠ A "no" is not an error. It is an outcome with a fault attached and a name
      on it, and the goods come back with the driver. */
-  const failStop = () => {
-    const stop = stopById(s.stopId);
+  const failStop = (stopId?: number) => {
+    /* ⚠⚠ The stop ON SCREEN, not the last one opened. Found on the 25 Nov
+       cross-app walk: /stop/5/failed reached by URL after closing stop 4
+       recorded the failure against stop 4 and overwrote its delivery. */
+    const stop = stopById(stopId ?? s.stopId);
     const reason = REASONS.find((r) => r.code === s.failReason);
     if (!reason) return;
     const entry: TrailEntry = {

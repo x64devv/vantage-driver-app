@@ -8,7 +8,7 @@ import Shell from '@/components/Shell';
 export const metadata: Metadata = {
   title: 'Vantage Driver',
   description:
-    'Demo build of the Vantage Driver phone app for TVSH Transport. Seeded run, no server, not the production module.',
+    'Demo build of the Vantage Driver phone app for Gain Logistics. Illustrative seeded run, no server, not the production module.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

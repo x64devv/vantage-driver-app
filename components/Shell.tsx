@@ -23,12 +23,13 @@
  */
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { CLOCKS, STOPS, TRIP, stopById } from '@/lib/run';
 import { queuedCount, useRun, type NavMode, type StopLayout } from '@/lib/state';
 import { ACC, AC7, BG, DIV, INK, SURF, TrailRow } from './ui';
 
 const P = { bezelW: 413, bezelH: 872, screenW: 393, screenH: 852 };
+const FIT_PAD = 20;
 
 type ScreenKey =
   | 'signin' | 'run' | 'route' | 'stop' | 'proof' | 'cash' | 'failed' | 'closed' | 'debrief';
@@ -106,13 +107,29 @@ function ShellInner({ children }: { children: ReactNode }) {
     debrief: '/run',
   };
 
+  /* ⚠ Fit the phone to the window height (28 Nov): the page must never scroll
+     in front of the room. Measured, not assumed — a 768 px laptop and a 1080 px
+     projector show the same phone, only smaller. Never scaled above full size.
+     Same approach as the dispatch tablet. Leaflet 1.9 reads the ancestor scale,
+     so the route map's taps still land. */
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const fit = () => setScale(Math.max(0.5, Math.min(1, (window.innerHeight - FIT_PAD * 2) / P.bezelH)));
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+
   const [kicker, title] = TITLES[key];
   const chromeOn = key !== 'signin';
   const go = (href: string) => router.push(href);
 
   const phone = (
+    <div style={{ flex: 'none', width: P.bezelW * scale, height: P.bezelH * scale }}>
     <div
       style={{
+        transform: `scale(${scale})`,
+        transformOrigin: 'top left',
         flex: 'none',
         width: P.bezelW,
         height: P.bezelH,
@@ -259,21 +276,50 @@ function ShellInner({ children }: { children: ReactNode }) {
         </div>
       </div>
     </div>
+    </div>
+  );
+
+  /* ⚠⚠ Gain re-seed, 25 Nov 2026. Every identity in this build is illustrative
+     (../GAIN-RESEED.md), and the room must be able to see that without anyone
+     saying it — so the tag sits outside the phone, on every route, in bare mode
+     too. It is deliberately NOT inside [data-phone="screen"]: it is a fact about
+     the demo, not something the driver's app would ever print. */
+  const illustrative = (
+    <div
+      data-illustrative="1"
+      style={{
+        position: 'fixed',
+        top: 12,
+        right: 16,
+        zIndex: 50,
+        padding: '6px 10px',
+        border: `2px solid ${ACC}`,
+        background: 'var(--color-bg, #fff)',
+        font: '700 11px/1 Archivo, system-ui',
+        letterSpacing: '.12em',
+        textTransform: 'uppercase',
+        color: ACC,
+      }}
+    >
+      Illustrative data — not Gain's records
+    </div>
   );
 
   if (bare) {
     return (
       <div
         style={{
-          minHeight: '100vh',
+          height: '100vh',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 24,
+          padding: `${FIT_PAD}px 24px`,
           fontFamily: 'var(--font-body)',
         }}
       >
         {phone}
+        {illustrative}
       </div>
     );
   }
@@ -281,12 +327,13 @@ function ShellInner({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: '100vh',
+        overflow: 'hidden',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
         gap: 48,
-        padding: '48px 56px',
+        padding: `${FIT_PAD}px 56px`,
         fontFamily: 'var(--font-body)',
         color: INK,
       }}
@@ -294,6 +341,7 @@ function ShellInner({ children }: { children: ReactNode }) {
       <Rail />
       {phone}
       {showTrail && <TrailRail />}
+      {illustrative}
     </div>
   );
 
@@ -311,7 +359,7 @@ function ShellInner({ children }: { children: ReactNode }) {
     ];
 
     return (
-      <div style={{ width: 320, flex: 'none', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ width: 320, flex: 'none', display: 'flex', flexDirection: 'column', gap: 20, maxHeight: '100%', overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div
             style={{
@@ -321,7 +369,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               color: ACC,
             }}
           >
-            TVSH Transport · Phase 0 · Driver app
+            Gain Logistics · Demo · Driver app
           </div>
           <h1 style={{ font: '800 40px/1.02 Archivo, system-ui', letterSpacing: '-.02em', margin: 0 }}>
             Vantage Driver
@@ -401,7 +449,7 @@ function ShellInner({ children }: { children: ReactNode }) {
      or a rehearsal where the room needs to see the outbox filling up. */
   function TrailRail() {
     return (
-      <div style={{ width: 330, flex: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ width: 330, flex: 'none', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '100%', overflowY: 'auto' }}>
         <div>
           <div
             style={{

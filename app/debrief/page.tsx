@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { DEBRIEF, STOPS, TRIP, VEHICLE, fmtKm, stopById } from '@/lib/run';
 import { depositNote, depositRows } from '@/lib/derive';
 import { litresDrawn, money, odoDistance, queuedCount, useRun, type TrailEntry } from '@/lib/state';
+import { COMING_BACK_TO, SEALS_TEXT, vanReconciliation, type VanState } from '@/lib/vanrec';
 import { ACC, BG, Btn, Card, DIV, Note, SURF, SectionHead } from '@/components/ui';
 
 export default function Debrief() {
@@ -43,6 +44,9 @@ export default function Debrief() {
   const rows = depositRows(s.orderAccepted);
   const distance = odoDistance(s);
   const litres = litresDrawn(s);
+  const van = vanReconciliation(s.done);
+  const balanceLine =
+    `${van.loaded} loaded = ${van.delivered} delivered + ${van.comingBack} coming back + ${van.onVan} not worked`;
 
   const signOff = () => {
     if (s.signedOff) return;
@@ -56,6 +60,22 @@ export default function Debrief() {
         `${s.deposit === 'VE' ? 'which also raised the invoice' : 'not the branch that raised the invoice'}. ` +
         `Signed off ${DEBRIEF.signedOffAt} by ${TRIP.driver.name}.`,
       dest: 'Queued · deposit register',
+      state: 'Queued',
+    });
+
+    /* ⚠ The van reconciliation goes up with the deposit: the goods and the money
+       are both handed back at the end of the run, and both are a record with
+       the driver's name on it. Every figure is derived from the run and the
+       outcomes he recorded — see lib/vanrec.ts. */
+    entries.push({
+      ref: `VANREC-${VEHICLE.reg}-${TRIP.load}`,
+      detail:
+        `${balanceLine} — ${van.balances ? 'balances' : 'does not balance'}. ` +
+        (van.comingBack > 0 ? `${van.comingBack} back to ${COMING_BACK_TO} under seals ${SEALS_TEXT}. ` : '') +
+        (van.transfer
+          ? `Transfer to ${van.transfer.customer}: ${van.transfer.lines} lines, counted by the branch on its receipt scan.`
+          : ''),
+      dest: 'Queued · van reconciliation',
       state: 'Queued',
     });
 
@@ -75,8 +95,8 @@ export default function Debrief() {
     if (litres !== null) {
       entries.push({
         ref: `FUEL-${VEHICLE.reg}-${s.odoIn || '—'}`,
-        /* ⚠⚠ This row is the argument. TM-5 shows fleet efficiency at 6.59 km/l
-           and the console's own code says TVSH has no reliable per-vehicle split.
+        /* ⚠⚠ This row is the argument. TM-5 shows a fleet-wide efficiency figure
+           (6.12 km/l, illustrative) and no reliable per-vehicle split.
            Litres against a registration and an odometer reading is what makes
            one. ⚠ It claims a fill, never a burn rate. */
         detail:
@@ -218,6 +238,105 @@ export default function Debrief() {
         )}
       </Card>
 
+      {/* ── Van stock: what went on, and where it is now ──────────────────── */}
+      {/* ⚠⚠ Derived, never typed (lib/vanrec.ts). The balance line is a sum done
+          on screen, and it says so if it does not balance rather than hiding it.
+          The transfer is reported in LINES on its own row — the branch counts
+          its units on its own receipt scan, and adding lines to cases would mix
+          two grades of a fact into one number. */}
+      <Card style={{ marginTop: 16, padding: 12 }}>
+        <div data-testid="van-rec">
+          <SectionHead right={<span style={{ fontSize: 10, opacity: 0.6 }}>derived from the run</span>}>
+            Van stock · {TRIP.load}
+          </SectionHead>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 1,
+              background: DIV,
+              marginTop: 10,
+            }}
+          >
+            <VanStat label="Loaded" value={van.loaded} testid="van-loaded" />
+            <VanStat label="Delivered" value={van.delivered} testid="van-delivered" />
+            <VanStat label="Coming back" value={van.comingBack} testid="van-back" accent={van.comingBack > 0} />
+            <VanStat label="Not worked" value={van.onVan} testid="van-onvan" />
+          </div>
+
+          <div
+            data-testid="van-balance"
+            style={{
+              marginTop: 8,
+              padding: '8px 10px',
+              borderLeft: `4px solid ${van.balances ? 'var(--color-text)' : ACC}`,
+              background: SURF,
+              fontFamily: 'Archivo, system-ui', fontVariantNumeric: 'tabular-nums',
+              fontSize: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            {balanceLine} — {van.balances ? 'balances' : 'does not balance · count it at goods-in'}
+          </div>
+          <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4 }}>
+            Units as loaded: a case, a bag, a bale, a crate and the freezer each count as one.
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            {van.lines.map((l, i) => (
+              <div
+                key={`${l.stopId}-${i}`}
+                data-testid={`van-line-${l.stopId}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  padding: '6px 0',
+                  borderBottom: `1px solid ${DIV}`,
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ fontFamily: 'Archivo, system-ui', fontVariantNumeric: 'tabular-nums', opacity: 0.6, flex: 'none', width: 22 }}>S{l.seq}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{l.desc}</span>
+                <span style={{ fontFamily: 'Archivo, system-ui', fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{l.qty}</span>
+                <VanTag state={l.state} />
+              </div>
+            ))}
+            {van.transfer && (
+              <div
+                data-testid="van-transfer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  padding: '6px 0',
+                  borderBottom: `1px solid ${DIV}`,
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ fontFamily: 'Archivo, system-ui', fontVariantNumeric: 'tabular-nums', opacity: 0.6, flex: 'none', width: 22 }}>S{van.transfer.seq}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  Transfer to {van.transfer.customer}
+                  <span style={{ display: 'block', fontSize: 10, opacity: 0.6 }}>
+                    counted by the branch on its receipt scan, not by you · not in the total
+                  </span>
+                </span>
+                <span style={{ fontFamily: 'Archivo, system-ui', fontVariantNumeric: 'tabular-nums', flex: 'none' }}>{van.transfer.lines} lines</span>
+                <VanTag state={van.transfer.state} handedOver />
+              </div>
+            )}
+          </div>
+
+          {van.comingBack > 0 && (
+            <Note style={{ marginTop: 10, fontSize: 11 }}>
+              {van.comingBack} back to {COMING_BACK_TO} under seals {SEALS_TEXT} — the tablet&rsquo;s
+              Coming back tab receives them against your exception.
+            </Note>
+          )}
+        </div>
+      </Card>
+
       <Btn
         kind="primary"
         height={56}
@@ -297,5 +416,49 @@ function Stat({
       <div style={{ font: `800 ${size}px Archivo, system-ui`, marginTop: 4 }}>{value}</div>
       {sub && <div style={{ font: '600 11px Archivo, system-ui', opacity: 0.7 }}>{sub}</div>}
     </div>
+  );
+}
+
+function VanStat({ label, value, testid, accent }: { label: string; value: number; testid: string; accent?: boolean }) {
+  return (
+    <div style={{ background: BG, padding: '8px 8px 9px' }}>
+      <Lbl>{label}</Lbl>
+      <div
+        data-testid={testid}
+        style={{ font: '800 20px Archivo, system-ui', fontVariantNumeric: 'tabular-nums', marginTop: 3, color: accent ? ACC : undefined }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+const VAN_LABEL: Record<VanState, string> = {
+  delivered: 'Delivered',
+  comingBack: 'Coming back',
+  onVan: 'Not worked',
+};
+
+/** ⚠ A line coming back is the one state that needs somebody at goods-in, so it
+ *  is the one drawn in accent. Delivered and not-worked are both plain facts. */
+function VanTag({ state, handedOver }: { state: VanState; handedOver?: boolean }) {
+  const back = state === 'comingBack';
+  return (
+    <span
+      style={{
+        flex: 'none',
+        font: '600 9px Archivo, system-ui',
+        letterSpacing: '.08em',
+        textTransform: 'uppercase',
+        padding: '3px 5px',
+        border: `1px solid ${back ? ACC : DIV}`,
+        color: back ? ACC : undefined,
+        background: state === 'delivered' ? SURF : 'transparent',
+        minWidth: 74,
+        textAlign: 'center',
+      }}
+    >
+      {handedOver && state === 'delivered' ? 'Handed over' : VAN_LABEL[state]}
+    </span>
   );
 }

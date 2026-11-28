@@ -139,7 +139,7 @@ export function depositNote(code: DepositCode) {
   const name = b.label.split(' · ')[1];
   if (code === 'VE') {
     return (
-      'Village Walk raised this invoice and is where you debrief — today the two coincide. ' +
+      'Willowvale raised this invoice and is where you debrief — today the two coincide. ' +
       'The deposit is still recorded against where the money actually went, so reconciliation is a ' +
       'query and not a spreadsheet.'
     );
